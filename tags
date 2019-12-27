@@ -1,0 +1,119 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+BILLION	profile.h	5;"	d
+BUFFER_SIZE	external_sort.cc	60;"	d	file:
+CXX	Makefile	/^CXX             = g++ -std=c++11$/;"	m
+Clear_files	external_sort.cc	/^void Clear_files(int rdc_fin, int mrg_fout, std::string inpath, std::string outpath){$/;"	f
+DATA_SIZE	external_sort.cc	45;"	d	file:
+DBG_P	debug.h	7;"	d
+DBG_P	debug.h	9;"	d
+DO_DATAGEN	external_sort.cc	48;"	d	file:
+DO_MRG	external_sort.cc	51;"	d	file:
+DO_REDUCE	external_sort.cc	50;"	d	file:
+DO_RUNFORM	external_sort.cc	49;"	d	file:
+DO_VERIFY	external_sort.cc	53;"	d	file:
+Data	external_sort.cc	/^struct Data{$/;"	s	file:
+EnqueueJob	threadpool.h	/^		std::future<typename std::result_of<F(Args...)>::type> ThreadPool::EnqueueJob($/;"	f	class:ThreadPool::ThreadPool
+GenerateDataFile	external_sort.cc	/^int GenerateDataFile(){$/;"	f
+INPUT_PATH	external_sort.cc	31;"	d	file:
+INPUT_PATH	external_sort.cc	38;"	d	file:
+LIBS	Makefile	/^LIBS			= -lpthread -ltbb$/;"	m
+MEM_SIZE	external_sort.cc	35;"	d	file:
+MEM_SIZE	external_sort.cc	42;"	d	file:
+MRG_SIZE	external_sort.cc	64;"	d	file:
+Merge	external_sort.cc	/^void Merge(){$/;"	f
+MergeArgs	external_sort.cc	/^struct MergeArgs{$/;"	s	file:
+NRTH_MERGE	external_sort.cc	58;"	d	file:
+NRTH_REDUCE	external_sort.cc	57;"	d	file:
+NRTH_RUNFORM	external_sort.cc	56;"	d	file:
+NRTH_TBB	external_sort.cc	55;"	d	file:
+NR_ENTRIES	external_sort.cc	63;"	d	file:
+NR_ENTRIES_BUFFER	external_sort.cc	62;"	d	file:
+NR_ENTRIES_MRG	external_sort.cc	65;"	d	file:
+NR_RUNS	external_sort.cc	61;"	d	file:
+OBJS	Makefile	/^OBJS            = $(SRCS:.cpp=.o)$/;"	m
+OUTPUT_PATH	external_sort.cc	32;"	d	file:
+OUTPUT_PATH	external_sort.cc	39;"	d	file:
+ParallelWriteData	readwrite.cc	/^int64_t ParallelWriteData(int fd, char *buf, int64_t buf_size, int nr_threads){$/;"	f
+PrintConfig	external_sort.cc	/^void PrintConfig(){$/;"	f
+PrintStat	external_sort.cc	/^void PrintStat(){$/;"	f
+RUN_PATH	external_sort.cc	33;"	d	file:
+RUN_PATH	external_sort.cc	40;"	d	file:
+ReadData	readwrite.cc	/^int64_t ReadData(int fd, char *buf, int64_t buf_size){$/;"	f
+ReadWriteArgs	readwrite.cc	/^struct ReadWriteArgs{$/;"	s	file:
+ReduceArgs	external_sort.cc	/^struct ReduceArgs{$/;"	s	file:
+RunFormation	external_sort.cc	/^int RunFormation(){$/;"	f
+RunformationArgs	external_sort.cc	/^struct RunformationArgs{$/;"	s	file:
+SRCS	Makefile	/^SRCS            = $(wildcard *.cpp) $(wildcard *.cc)$/;"	m
+TARGET	Makefile	/^TARGET          = ocmsort2$/;"	m
+TEST	external_sort.cc	28;"	d	file:
+TOTAL_DATA_SIZE	external_sort.cc	34;"	d	file:
+TOTAL_DATA_SIZE	external_sort.cc	41;"	d	file:
+ThreadPool	threadpool.h	/^	ThreadPool::ThreadPool(size_t num_threads)$/;"	f	class:ThreadPool::ThreadPool
+ThreadPool	threadpool.h	/^	class ThreadPool {$/;"	c	namespace:ThreadPool
+ThreadPool	threadpool.h	/^namespace ThreadPool {$/;"	n
+USE_TBB	external_sort.cc	46;"	d	file:
+WorkerThread	threadpool.h	/^	void ThreadPool::WorkerThread() {$/;"	f	class:ThreadPool::ThreadPool
+WriteData	readwrite.cc	/^int64_t WriteData(int fd, char *buf, int64_t buf_size){$/;"	f
+_DEBUG_H_	debug.h	2;"	d
+_LARGEFILE63_SOURCE	external_sort.cc	1;"	d	file:
+_PROFILE_H_	profile.h	2;"	d
+alloc_buf	external_sort.cc	/^Data* alloc_buf(){$/;"	f
+buf	readwrite.cc	/^	char *buf;$/;"	m	struct:ReadWriteArgs	file:
+buf_size	readwrite.cc	/^	int64_t buf_size;$/;"	m	struct:ReadWriteArgs	file:
+calclock	profile.h	7;"	d
+compare	external_sort.cc	/^bool compare(struct Data a, struct Data b){$/;"	f
+cv_job_q_	threadpool.h	/^			std::condition_variable cv_job_q_;$/;"	m	class:ThreadPool::ThreadPool
+data	external_sort.cc	/^	struct Data data;$/;"	m	struct:idx_Data	typeref:struct:idx_Data::Data	file:
+fd	readwrite.cc	/^	int fd;$/;"	m	struct:ReadWriteArgs	file:
+fd_input	external_sort.cc	/^	int fd_input;$/;"	m	struct:RunformationArgs	file:
+fd_input	external_sort.cc	/^	int fd_input[NR_RUNS\/NRTH_REDUCE];$/;"	m	struct:MergeArgs	file:
+fd_output	external_sort.cc	/^	int fd_output;$/;"	m	struct:MergeArgs	file:
+g_buffer	external_sort.cc	/^Data *g_buffer;$/;"	v
+idx	external_sort.cc	/^	uint32_t idx;$/;"	m	struct:idx_Data	file:
+idx_Data	external_sort.cc	/^struct idx_Data{$/;"	s	file:
+inpath	external_sort.cc	/^	std::string inpath;$/;"	m	struct:ReduceArgs	file:
+jobs_	threadpool.h	/^			std::queue<std::function<void()>> jobs_;$/;"	m	class:ThreadPool::ThreadPool
+key	external_sort.cc	/^	uint32_t key;$/;"	m	struct:Data	file:
+m_job_q_	threadpool.h	/^			std::mutex m_job_q_;$/;"	m	class:ThreadPool::ThreadPool
+main	external_sort.cc	/^int main(int argc, char* argv[]){$/;"	f
+merge_count	profile.h	/^unsigned long long merge_time, merge_count;$/;"	v
+merge_time	profile.h	/^unsigned long long merge_time, merge_count;$/;"	v
+nbyte_load	external_sort.cc	/^	int64_t nbyte_load;$/;"	m	struct:RunformationArgs	file:
+num_threads_	threadpool.h	/^			size_t num_threads_;$/;"	m	class:ThreadPool::ThreadPool
+operator >	external_sort.cc	/^	bool operator>(const idx_Data &cmp) const {$/;"	f	struct:idx_Data
+pReadData	readwrite.cc	/^int64_t pReadData(int fd, char *buf, int64_t buf_size, off_t ofs){$/;"	f
+pWriteData	readwrite.cc	/^int64_t pWriteData(int fd, char *buf, int64_t buf_size, off_t ofs){$/;"	f
+r_buffer	external_sort.cc	/^	char * r_buffer;$/;"	m	struct:RunformationArgs	file:
+randstring	external_sort.cc	/^void *randstring(size_t length, char *buf) {$/;"	f
+reduce_count	profile.h	/^unsigned long long reduce_time, reduce_count;$/;"	v
+reduce_time	profile.h	/^unsigned long long reduce_time, reduce_count;$/;"	v
+run_idx	external_sort.cc	/^std::atomic_int run_idx;$/;"	v
+st_offset	external_sort.cc	/^	off_t st_offset;$/;"	m	struct:RunformationArgs	file:
+step_cnt	profile.h	/^int step_cnt;$/;"	v
+stop_all	threadpool.h	/^			bool stop_all;$/;"	m	class:ThreadPool::ThreadPool
+t_Merge	external_sort.cc	/^void *t_Merge(void* data){$/;"	f
+t_Reduce	external_sort.cc	/^void *t_Reduce(void* data){$/;"	f
+t_RunFormation	external_sort.cc	/^void* t_RunFormation(void *data){$/;"	f
+t_WriteData	readwrite.cc	/^void *t_WriteData(void *data){$/;"	f
+th_idx	external_sort.cc	/^	int th_idx;$/;"	m	struct:MergeArgs	file:
+th_idx	external_sort.cc	/^	int th_idx;$/;"	m	struct:ReduceArgs	file:
+total_count	profile.h	/^unsigned long long total_time, total_count;$/;"	v
+total_merge_count	profile.h	/^unsigned long long total_merge_time, total_merge_count;$/;"	v
+total_merge_time	profile.h	/^unsigned long long total_merge_time, total_merge_count;$/;"	v
+total_run_formation_count	profile.h	/^unsigned long long total_run_formation_time, total_run_formation_count;$/;"	v
+total_run_formation_load_count	profile.h	/^unsigned long long total_run_formation_load_time, total_run_formation_load_count;$/;"	v
+total_run_formation_load_time	profile.h	/^unsigned long long total_run_formation_load_time, total_run_formation_load_count;$/;"	v
+total_run_formation_sort_count	profile.h	/^unsigned long long total_run_formation_sort_time, total_run_formation_sort_count;$/;"	v
+total_run_formation_sort_time	profile.h	/^unsigned long long total_run_formation_sort_time, total_run_formation_sort_count;$/;"	v
+total_run_formation_store_count	profile.h	/^unsigned long long total_run_formation_store_time, total_run_formation_store_count;$/;"	v
+total_run_formation_store_time	profile.h	/^unsigned long long total_run_formation_store_time, total_run_formation_store_count;$/;"	v
+total_run_formation_time	profile.h	/^unsigned long long total_run_formation_time, total_run_formation_count;$/;"	v
+total_time	profile.h	/^unsigned long long total_time, total_count;$/;"	v
+value	external_sort.cc	/^	char value[DATA_SIZE-sizeof(uint32_t)];$/;"	m	struct:Data	file:
+worker_threads_	threadpool.h	/^			std::vector<std::thread> worker_threads_;$/;"	m	class:ThreadPool::ThreadPool
+~ThreadPool	threadpool.h	/^	ThreadPool::~ThreadPool() {$/;"	f	class:ThreadPool::ThreadPool
