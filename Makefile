@@ -1,8 +1,8 @@
 CXX             = g++ -std=c++11
 SRCS            = $(wildcard *.cpp) $(wildcard *.cc)
 OBJS            = $(SRCS:.cpp=.o)
-TARGET          = ocmsort2
-LIBS			= -lpthread -ltbb
+TARGET          = extsort
+LIBS		= -lpthread
 
 all : $(TARGET)
 	$(CXX) -o $(TARGET) $(OBJS) $(INC) $(LIB_DIRS) $(LIBS)

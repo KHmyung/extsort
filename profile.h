@@ -1,3 +1,4 @@
+/*
 #ifndef _PROFILE_H_
 #define _PROFILE_H_
 
@@ -22,8 +23,6 @@
 
 //Global function time/count variables
 unsigned long long total_time, total_count;
-int step_cnt;
-
 unsigned long long runformation_time, runformation_count;
 unsigned long long reduce_time, reduce_count;
 unsigned long long merge_time, merge_count;
@@ -36,3 +35,4 @@ unsigned long long merge_read_time[256], merge_read_count[256];
 unsigned long long merge_write_time[256], merge_write_count[256];
 unsigned long long merge_sort_time[256], merge_sort_count[256];
 #endif
+*/
