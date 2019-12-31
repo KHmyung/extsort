@@ -3,5 +3,7 @@
 !*/
 !*Makefile
 
+cscope.out
+tags
 *.swp
 *.o
