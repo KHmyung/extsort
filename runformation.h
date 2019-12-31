@@ -27,14 +27,15 @@ struct RunformTime{
 struct RunformationArgs{
 	int fd_input;
 	int th_id;
+	int run_ofs;
 	int nr_run;
 	int nr_range;
-	int data_size;
-	int blk_size;
-	off_t offset;
+	uint64_t data_size;
+	uint64_t blk_size;
+	uint64_t offset;
+	uint64_t *range_table;
 	std::atomic<int> *run_id;
 	std::string runpath;
-	uint64_t *range_table;
 };
 
 void RunFormation(void*);

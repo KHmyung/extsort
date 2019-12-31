@@ -3,6 +3,23 @@
 struct MergeTime mrg_time;
 std::priority_queue<id_Data, std::vector<id_Data>, std::greater<id_Data>> pq;
 
+static unsigned long long * __time_alloc(int nr){
+	return (unsigned long long *)calloc(nr, sizeof(unsigned long long));
+}
+
+static void time_init(int nr_thread, struct MergeTime *time){
+	time->merge_t = 0;
+	time->merge_c = 0;
+	time->merge_arrival_t = __time_alloc(nr_thread);
+	time->merge_arrival_c = __time_alloc(nr_thread);
+	time->merge_read_t = __time_alloc(nr_thread);
+	time->merge_read_c = __time_alloc(nr_thread);
+	time->merge_write_t = __time_alloc(nr_thread);
+	time->merge_write_c = __time_alloc(nr_thread);
+	time->merge_sort_t = __time_alloc(nr_thread);
+	time->merge_sort_c = __time_alloc(nr_thread);
+}
+
 static struct Data* 
 alloc_buf(int64_t size){
 	void *mem;
@@ -293,6 +310,7 @@ Merge(void* data){
 		fd_run[i] = open( (odb.runpath + std::to_string(i)).c_str(), O_DIRECT | O_RDONLY);
 	}
 
+	time_init(odb.nr_merge_th, &mrg_time);
 	uint64_t *range_table;
 	range_table = (uint64_t *)calloc(odb.nr_merge_th * odb.nr_run, sizeof(uint64_t));
 
