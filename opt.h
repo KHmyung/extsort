@@ -10,7 +10,7 @@
 #define TOTAL_DATA_SIZE (((int64_t)1*1024*1024*1024))
 #define MEM_SIZE (((int64_t)128*1024*1024))
 
-#define DO_DATAGEN true
+#define DO_DATAGEN false
 #define DO_RUNFORM true
 #define DO_MERGE true
 #define DO_VERIFY false

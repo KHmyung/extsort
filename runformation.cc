@@ -52,11 +52,13 @@ range_balancing(struct Data* buf, int nr_range, uint64_t size,
 		buf_filter[buf[i].key/filter]++;
 	}
 
+	memset(&range_table[0], 0, nr_range);
+
 	if(nr_range > 16){
 		for(int j = 0; j < nr_filter; j++){
 			range_table[range] += buf_filter[j];
 			if((range_table[range] > nr_entries/nr_range) && 
-					(range < nr_range - 1))
+					(range < nr_range-1))
 			{
 				range++;
 			}
@@ -66,72 +68,71 @@ range_balancing(struct Data* buf, int nr_range, uint64_t size,
 		for(int j = 0; j < nr_filter; j++){
 			range_table[range] += buf_filter[j];
 			if((range_table[range] > nr_entries/(nr_range + 1)) && 
-					(range < nr_range - 1))
+					(range < nr_range-1))
 			{
 				range++;
 			}
 		}
 	}
-	if(id == 1){
-		std::cout << "run: " << run << std::endl;
-		for(int i = 0; i < nr_range; i++)
-			std::cout << range_table[i] << std::endl;
-	}
 	free(buf_filter);
 }
 
 static void
-reverse_table(uint64_t *table, int row, int col){
-	/* implemented in a naive way */
+reverse_table(uint64_t *table, int nr_run, int nr_range){
 	uint64_t *new_table;
-	new_table = (uint64_t *)malloc(row * col * sizeof(uint64_t));
+	new_table = (uint64_t *)malloc(nr_run * nr_range * sizeof(uint64_t));
 	assert(new_table != NULL);
 
-	for(int i = 0; i < row; i++){
+	for(int run = 0; run < nr_run; run++){
 		/* data moved from row to column */
-		for(int j = 0; j < col; j++){
-			new_table[j * col + i] = table[i * row + j];
+		for(int range = 0; range < nr_range; range++){
+			new_table[range * nr_run + run] = table[run * nr_range + range];
 		}
 	}
 
-	memcpy(table, new_table, col * row * sizeof(uint64_t));	
+	memcpy(table, new_table, nr_run * nr_range * sizeof(uint64_t));	
 	free(new_table);
 }
 
 
-static void
+static uint64_t
 print_range(uint64_t *range_table, int nr_range, int nr_run){
 	uint64_t range_sum;
+	uint64_t nr_entries = 0;
 	for(int range = 0; range < nr_range; range++){
 		range_sum = 0;
 		for(int run = 0; run < nr_run; run++){
 			range_sum += range_table[range * nr_run + run];
 		}
 		std::cout << "range[" << range << "]: " << range_sum << std::endl;
+		nr_entries += range_sum;
 	}
+	return nr_entries;	
 }
 
 static void
 print_range_before(uint64_t *range_table, int nr_range, int nr_run){
-	/*
 	for(int run = 0; run < nr_run; run++){
 		for(int range = 0; range < nr_range; range++){
-			std::cout << range_table[nr_range*run + range] << std::endl;
+			std::cout << range_table[run * nr_range + range] << std::endl;
 		}	
 	}
-	*/
 }
 
 static void 
 range_to_file(uint64_t *range_table, struct opt_t odb){
-
-	print_range_before(&range_table[0], odb.nr_merge_th, odb.nr_run);	
+	int entries;
+	/* show run_range format (blocked by default because it makes too many lines)
+	 * print_range_before(&range_table[0], odb.nr_merge_th, odb.nr_run);	
+	 */
 
 	/* switch rows to columns in range table for cache locality */
-	reverse_table(&range_table[0], odb.nr_merge_th, odb.nr_run);
-	
-	print_range(&range_table[0], odb.nr_merge_th, odb.nr_run);
-	
+	reverse_table(&range_table[0], odb.nr_run, odb.nr_merge_th);
+		
+	/* show range_run format */
+	entries = print_range(&range_table[0], odb.nr_merge_th, odb.nr_run);
+	assert(entries == odb.total_size/KV_SIZE);
+
 	FILE* meta = fopen(odb.metapath.c_str(), "w+");
 	
 	/* put range table into file */	
@@ -214,7 +215,7 @@ t_RunFormation(void *data){
 
 		int fd_run = open( (runpath + std::to_string(run_ofs)).c_str(),
 			       	O_DIRECT | O_RDWR | O_CREAT | O_LARGEFILE, 0644);
-		assert(fd_run > 0);
+		assert(fd_run != -1);
 	
 	        int64_t write_byte = flush_buffer(fd_run, (char *)&runbuf[0], blk_size, th_id);
 		nbyte_sorted += write_byte;		
@@ -246,7 +247,7 @@ RunFormation(void* data){
 
 	/* allocate range table */
 	uint64_t *range_table;
-	range_table = (uint64_t *)calloc(odb.nr_merge_th * odb.nr_run, sizeof(uint64_t));
+	range_table = (uint64_t *)calloc(odb.nr_run, sizeof(uint64_t) * odb.nr_merge_th);
 	assert(range_table != NULL);
 
 	struct RunformationArgs runformation_args[odb.nr_runform_th];
@@ -275,7 +276,8 @@ RunFormation(void* data){
 		runformation_args[th_id].offset = data_size * run_ofs;
 		runformation_args[th_id].run_id = &run_id;
 		runformation_args[th_id].runpath = odb.runpath;
-		runformation_args[th_id].range_table = &range_table[run_ofs]; 
+		runformation_args[th_id].range_table = &range_table[run_ofs * odb.nr_merge_th];
+
 		thread_id[th_id] = pthread_create(&p_thread[th_id], NULL, 
 				t_RunFormation, (void*)&runformation_args[th_id]);
 	}

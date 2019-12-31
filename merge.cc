@@ -30,6 +30,40 @@ alloc_buf(int64_t size){
 	return tmp;
 }
 
+static uint64_t
+refill_buffer(int fd, char* buf, int size, int id, uint64_t ofs){
+#if DO_PROFILE
+	struct timespec local_time[2];
+	clock_gettime(CLOCK_MONOTONIC, &local_time[0]);
+#endif
+	int64_t tmp_read = pread(fd, (char*)buf, size, ofs);
+	assert(tmp_read == size);
+	ofs += tmp_read;
+#if DO_PROFILE
+	clock_gettime(CLOCK_MONOTONIC, &local_time[1]);
+	calclock(local_time, &mrg_time.merge_read_t[id], 
+			     &mrg_time.merge_read_c[id]);
+#endif
+	return ofs;
+}
+
+
+static void
+flush_buffer(int fd, char* buf, int size, int id)
+{
+#if DO_PROFILE
+	struct timespec local_time[2];
+	clock_gettime(CLOCK_MONOTONIC, &local_time[0]);
+#endif
+	int64_t tmp_write = write(fd, (char*)buf, size);
+	assert(tmp_write == size);
+#if DO_PROFILE
+	clock_gettime(CLOCK_MONOTONIC, &local_time[1]);
+	calclock(local_time, &mrg_time.merge_write_t[id], 
+			     &mrg_time.merge_write_c[id]);
+#endif
+}
+
 static void 
 file_to_range(uint64_t *range_table, struct opt_t odb){
 	FILE* meta = fopen(odb.metapath.c_str(), "r");
@@ -82,18 +116,8 @@ init_tournament(int fd,
 	struct Data first_data;
 	struct timespec local_time[2];
 
-#if DO_PROFILE
-	clock_gettime(CLOCK_MONOTONIC, &local_time[0]);
-#endif		
 
-	int64_t tmp_read = pread(fd, (char*)&blkbuf[0], blk_size, *read_ofs);
-	assert(tmp_read == blk_size);
-
-#if DO_PROFILE
-	clock_gettime(CLOCK_MONOTONIC, &local_time[1]);
-	calclock(local_time, &mrg_time.merge_read_t[id], &mrg_time.merge_read_c[id]);
-#endif
-	*read_ofs += tmp_read;	
+	*read_ofs = refill_buffer(fd, (char*)&blkbuf[0], blk_size, id, *read_ofs);
 	*run_ofs++;
 
 	first_data = blkbuf[0];
@@ -137,39 +161,6 @@ verify_state(struct RangeInfo *range_i, struct RunInfo *run_i, struct id_Data sl
 	assert(!(slot.data.key == 0 && range_i->id != 0));
 }
 
-static uint64_t
-refill_buffer(int fd, char* buf, int size, int id, uint64_t ofs){
-#if DO_PROFILE
-	struct timespec local_time[2];
-	clock_gettime(CLOCK_MONOTONIC, &local_time[0]);
-#endif
-	int64_t tmp_read = pread(fd, (char*)buf, size, ofs);
-	assert(tmp_read == size);
-	ofs += tmp_read;
-#if DO_PROFILE
-	clock_gettime(CLOCK_MONOTONIC, &local_time[1]);
-	calclock(local_time, &mrg_time.merge_read_t[id], 
-			     &mrg_time.merge_read_c[id]);
-#endif
-	return ofs;
-}
-
-
-static void
-flush_buffer(int fd, char* buf, int size, int id)
-{
-#if DO_PROFILE
-	struct timespec local_time[2];
-	clock_gettime(CLOCK_MONOTONIC, &local_time[0]);
-#endif
-	int64_t tmp_write = write(fd, (char*)buf, size);
-	assert(tmp_write == size);
-#if DO_PROFILE
-	clock_gettime(CLOCK_MONOTONIC, &local_time[1]);
-	calclock(local_time, &mrg_time.merge_write_t[id], 
-			     &mrg_time.merge_write_c[id]);
-#endif
-}
 
 static void 
 *t_Merge(void* data){
