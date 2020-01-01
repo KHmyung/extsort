@@ -34,6 +34,7 @@ struct MergeArgs{
 	int wrbuf_size;
 	int *fd_run;
 	uint64_t nr_entries;
+	uint64_t *start_ofs;
 	uint64_t *range_table;
 	std::string outpath;
 };
@@ -41,7 +42,7 @@ struct MergeArgs{
 struct RangeInfo{
 	int id;			/* range id */
 	int mrg_ofs;		/* data entry offset of merge buffer */
-	uint64_t nbyte_merged;	/* number of entries merged*/
+	uint64_t merged;	/* number of entries merged*/
 	Data *g_mrgbuf;		/* merge buffer for write */
 	Data *g_blkbuf;		/* block buffer for merge thread */
 };
@@ -49,7 +50,7 @@ struct RangeInfo{
 struct RunInfo{
 	int fd;			/* file descriptor of all run files */
 	int run_ofs;		/* block offset of run file (from zero) */
-	int nr_blk;		/* number of blocks for corresponding range in each run */
+	int last_blk;		/* number of blocks for corresponding range in each run */
 	uint64_t read_ofs;	/* byte offset to be read in run file (from range offset) */
 	uint64_t blk_ofs;	/* data entry to be pushed into priority queue */
 	uint64_t blk_entry;	/* number of data entries in a block of each run */

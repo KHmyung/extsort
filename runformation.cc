@@ -111,22 +111,34 @@ print_range(uint64_t *range_table, int nr_range, int nr_run){
 }
 
 static void
-print_range_before(uint64_t *range_table, int nr_range, int nr_run){
+calc_start_ofs(uint64_t *range_table, uint64_t *start_ofs, 
+					int boundary, int nr_range, int nr_run)
+{
+	uint64_t ofs;
+	
 	for(int run = 0; run < nr_run; run++){
-		for(int range = 0; range < nr_range; range++){
-			std::cout << range_table[run * nr_range + range] << std::endl;
+		ofs = 0;
+		for(int range = 0; range < boundary; range++){
+			ofs += range_table[run * nr_range + range];
+		
 		}	
+		start_ofs[run] = ofs;
 	}
 }
 
 static void 
 range_to_file(uint64_t *range_table, struct opt_t odb){
 	int entries;
-	/* show run_range format (blocked by default because it makes too many lines)
-	 * print_range_before(&range_table[0], odb.nr_merge_th, odb.nr_run);	
-	 */
+	uint64_t *start_ofs;
+	start_ofs = (uint64_t *)malloc(odb.nr_merge_th * odb.nr_run * sizeof(uint64_t));
 
-	/* switch rows to columns in range table for cache locality */
+	/* range boundary calculation for each run file */
+	for (int range = 0; range < odb.nr_merge_th; range++){
+		calc_start_ofs(&range_table[0], &start_ofs[range * odb.nr_run], range,
+					odb.nr_merge_th, odb.nr_run);
+	}
+
+	/* switch rows to columns in range table for cache locality in merge phase */
 	reverse_table(&range_table[0], odb.nr_run, odb.nr_merge_th);
 		
 	/* show range_run format */
@@ -137,7 +149,9 @@ range_to_file(uint64_t *range_table, struct opt_t odb){
 	
 	/* put range table into file */	
 	fwrite(&range_table[0], sizeof(uint64_t), odb.nr_merge_th * odb.nr_run, meta);
+	fwrite(&start_ofs[0], sizeof(uint64_t), odb.nr_merge_th * odb.nr_run, meta);
 	
+	free(start_ofs);
 	fclose(meta);
 }
 
@@ -282,10 +296,9 @@ RunFormation(void* data){
 				t_RunFormation, (void*)&runformation_args[th_id]);
 	}
 	
-	int is_ok = 0;
+	uint64_t is_ok = 0;
 	for(int th_id = 0; th_id < odb.nr_runform_th; th_id++){
 		pthread_join(p_thread[th_id], (void**)&is_ok);
-		assert(is_ok == 1);
 	}
 
 	/* store range table into file */	
