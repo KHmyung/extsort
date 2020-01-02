@@ -8,15 +8,15 @@
 #define OUTPUT_PATH "../output/"
 #define RUN_PATH "../runs/"
 #define TOTAL_DATA_SIZE (((int64_t)1*1024*1024*1024))
-#define MEM_SIZE (((int64_t)512*1024*1024))
+#define MEM_SIZE (((int64_t)128*1024*1024))
 
 #define DO_DATAGEN true
 #define DO_RUNFORM true
 #define DO_MERGE true
-#define DO_VERIFY true
+#define DO_VERIFY false
 
-#define NRTH_RUNFORM 32
-#define NRTH_MRG 32
+#define NRTH_RUNFORM 4
+#define NRTH_MRG 4
 
 #define KV_SIZE (128)
 #define MAXKEY 1073741824 // 0x40000000 1G(billion) key

@@ -30,7 +30,7 @@ alloc_buf(int64_t size){
 }
 
 static void
-refill_buffer(struct RunInfo *ri, uint64_t size, int id){
+refill_buffer(struct RunInfo *ri, uint64_t size, int id, int first){
 #if DO_PROFILE
 	struct timespec local_time[2];
 	clock_gettime(CLOCK_MONOTONIC, &local_time[0]);
@@ -39,7 +39,8 @@ refill_buffer(struct RunInfo *ri, uint64_t size, int id){
 	assert(tmp_read == size);
 
 	ri->read_ofs += tmp_read;
-	ri->blk_ofs = 0;
+	if(!first)
+		ri->blk_ofs = 0;
 	ri->run_ofs++;
 
 #if DO_VERIFY
@@ -92,51 +93,51 @@ init_range_info(struct RangeInfo *range_i, struct MergeArgs args){
 }
 
 static void
-init_run_info(struct RunInfo *run_i, Data* g_blkbuf, uint64_t nr_entries, 
+init_run_info(struct RunInfo *ri, Data* g_blkbuf, uint64_t nr_entries, 
 					int fd, int run, int id, 
 					int nr_range, int blk_size, uint64_t start_ofs) 
 {
-	run_i->fd = fd; 
-
+	ri->fd = fd; 
+	
 	/* start offset of each run */	
 	start_ofs *= KV_SIZE;	// entry to byte
-	run_i->run_ofs = start_ofs / blk_size;	// byte to block
-	run_i->read_ofs = run_i->run_ofs * blk_size;	// block to byte (without remainder)
+	ri->run_ofs = start_ofs / blk_size;	// byte to block
+	ri->read_ofs = ri->run_ofs * blk_size;	// block to byte (without remainder)
 
 	/* start offset of the first block */
-	run_i->blk_ofs = (start_ofs/KV_SIZE) % blk_size;
+	ri->blk_ofs = (start_ofs % blk_size)/KV_SIZE;
 
 	/* entry size (different with block size only for the last one) */
-	run_i->blk_entry = blk_size / KV_SIZE;
+	ri->blk_entry = blk_size / KV_SIZE;
 
 	/* last block */
-	run_i->last_blk = start_ofs + (nr_entries * KV_SIZE);
-	run_i->remainder = (run_i->last_blk % blk_size) / KV_SIZE;
-	run_i->last_blk /= blk_size;
-	if(run_i->remainder == 0){ 
-		run_i->last_blk--;
-		run_i->remainder = blk_size / KV_SIZE;
+	ri->last_blk = start_ofs + (nr_entries * KV_SIZE);
+	ri->remainder = (ri->last_blk % blk_size) / KV_SIZE;
+	ri->last_blk /= blk_size;
+	if(ri->remainder == 0){ 
+		ri->last_blk--;
+		ri->remainder = blk_size / KV_SIZE;
 	}
 
 	/* buffer allocation for this run */
-	run_i->blkbuf = &g_blkbuf[run * (blk_size/KV_SIZE)];
+	ri->blkbuf = &g_blkbuf[run * (blk_size/KV_SIZE)];
+	
 }
 
 static struct Data
 init_tournament(struct RunInfo *ri, uint64_t blk_size, int id){ 
 	struct Data first_data;
 
-	refill_buffer(ri, blk_size, id);
+	refill_buffer(ri, blk_size, id, 1);
 
-	first_data = ri->blkbuf[0];
-	ri->blk_ofs++;
+	first_data = ri->blkbuf[ri->blk_ofs++];
 
 	return first_data;
 }
 					
 static bool
 check_last(struct RunInfo *ri){
-	return (ri->run_ofs == ri->last_blk - 1);
+	return (ri->run_ofs == ri->last_blk);
 }
 
 static void
@@ -196,8 +197,6 @@ static void
 	struct RunInfo *run_i;
 	run_i = (struct RunInfo *)malloc(nr_run * sizeof(struct RunInfo));
 
-	std::cout << "range[" << range_i->id << "]: " << nr_entries << std::endl; 
-
 	for(int run = 0; run < nr_run; run++){
 		/* initialize run data structure */
 		init_run_info(&run_i[run], &range_i->g_blkbuf[0], range_table[run], 
@@ -227,13 +226,16 @@ static void
 		slot = pq.top();
 		range_i->g_mrgbuf[range_i->mrg_ofs++] = slot.data;
 		pq.pop();
-		
+
+
+#if DO_VERIFY
+		last_key = slot.data.key;
+		verify_state(range_i, run_i, slot);
+#endif
+
 		/* if all entries are merged */
 		if(++range_i->merged == nr_entries)
 			break;
-#if DO_VERIFY
-		verify_state(range_i, run_i, slot);
-#endif
 		
 		/* flush full merge buffer */
 		if(range_i->mrg_ofs == wrbuf_size/KV_SIZE){
@@ -246,7 +248,7 @@ static void
 		if(run_i[slot.run_id].blk_ofs == run_i[slot.run_id].blk_entry){
 			
 			/* continue if the run is exhausted */ 
-			if(run_i[slot.run_id].run_ofs == run_i[slot.run_id].last_blk){
+			if(run_i[slot.run_id].run_ofs == run_i[slot.run_id].last_blk + 1){
 				continue;
 			}
 
@@ -258,7 +260,7 @@ static void
 						= run_i[slot.run_id].remainder;
 					memset(&run_i[slot.run_id].blkbuf[0], 0, blk_size);
 				}
-				refill_buffer(&run_i[slot.run_id], blk_size, range_i->id);
+				refill_buffer(&run_i[slot.run_id], blk_size, range_i->id, 0);
 			}
 		}
 		/* put one into tournament */ 
@@ -268,7 +270,7 @@ static void
 
 
 #if DO_VERIFY
-	print_key(range_i->id, 0, range_i->g_mrgbuf[0].key);
+	print_key(range_i->id, 0, last_key);
 #endif
 	
 	/* flush the last buffer */

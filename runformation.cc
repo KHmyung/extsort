@@ -52,8 +52,6 @@ range_balancing(struct Data* buf, int nr_range, uint64_t size,
 		buf_filter[buf[i].key/filter]++;
 	}
 
-	memset(&range_table[0], 0, nr_range);
-
 	if(nr_range > 16){
 		for(int j = 0; j < nr_filter; j++){
 			range_table[range] += buf_filter[j];
@@ -104,7 +102,9 @@ print_range(uint64_t *range_table, int nr_range, int nr_run){
 		for(int run = 0; run < nr_run; run++){
 			range_sum += range_table[range * nr_run + run];
 		}
+#if DO_VERIFY
 		std::cout << "range[" << range << "]: " << range_sum << std::endl;
+#endif
 		nr_entries += range_sum;
 	}
 	return nr_entries;	
@@ -123,6 +123,7 @@ calc_start_ofs(uint64_t *range_table, uint64_t *start_ofs,
 		
 		}	
 		start_ofs[run] = ofs;
+		//std::cout << start_ofs[run] << std::endl;
 	}
 }
 
@@ -222,7 +223,7 @@ t_RunFormation(void *data){
 
 		/* Sort (STL) */	
 		std::sort(&runbuf[0], &runbuf[blk_size/KV_SIZE], compare);
-
+		
 		/* gather range statistics from sorted buffer */		
 		range_balancing(&runbuf[0], nr_range, blk_size, run_ofs, 
 				&range_table[nr_range * done], th_id);
@@ -300,10 +301,9 @@ RunFormation(void* data){
 	for(int th_id = 0; th_id < odb.nr_runform_th; th_id++){
 		pthread_join(p_thread[th_id], (void**)&is_ok);
 	}
-
+	
 	/* store range table into file */	
 	range_to_file(&range_table[0], odb);
-
 	close(fd_input);
 	free(range_table);
 }
