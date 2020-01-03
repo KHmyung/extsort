@@ -60,21 +60,21 @@ ShowStats(void* data){
 
 	std::cout << "\n <PROFILE>" << std::endl;
 
-	print_time(" Total        ", run_time.total_t + mrg_time.total_t);
-	print_time(" RunFormation ", run_time.total_t);
-	print_time(" Merge        ", mrg_time.total_t);
+	print_time(" Total(s)        ", run_time.total_t + mrg_time.total_t);
+	print_time(" RunFormation(s) ", run_time.total_t);
+	print_time(" Merge(s)        ", mrg_time.total_t);
 
 	std::cout << "\n <STATS>" << std::endl;
-	std::cout << "     [ TOTAL ]     " << std::endl;
+	std::cout << "\n     [ TOTAL(s) ]     " << std::endl;
 	print_time("  AVG  Total        ", run_stat.avg_total + mrg_stat.avg_total);
-	std::cout << "\n  [ RUNFORMATION ] " << std::endl;
+	std::cout << "\n  [ RUNFORMATION(s) ] " << std::endl;
 	print_time(" FIRST Arrival      ", run_stat.first_time);
 	print_time("  LAST Arrival      ", run_stat.last_time);
 	print_time("  AVG  Total        ", run_stat.avg_total);
 	print_time("       -Sort        ", run_stat.avg_sort);
 	print_time("       -Read        ", run_stat.avg_read);
 	print_time("       -Write       ", run_stat.avg_write);
-	std::cout << "\n     [ MERGE ]    " << std::endl;
+	std::cout << "\n     [ MERGE(s) ]    " << std::endl;
 	print_time(" FIRST Arrival      ", mrg_stat.first_time);
 	print_time("  LAST Arrival      ", mrg_stat.last_time);
 	print_time("  AVG  Total        ", mrg_stat.avg_total);
@@ -84,11 +84,11 @@ ShowStats(void* data){
 
 	std::cout << "\n <THREADS STATS | ";
 	std::cout << "(id) | (Total),(Sort),(Read),(Write)>" << std::endl;
-	std::cout << "\n  [ RUNFORMATION ] " << std::endl;
+	std::cout << "\n  [ RUNFORMATION(s) ] " << std::endl;
 	for (int th = 0; th < odb.nr_runform_th; th++){
 		print_thread_time(th, run_time);
 	}
-	std::cout << "\n     [ MERGE ]    " << std::endl;
+	std::cout << "\n     [ MERGE(s) ]    " << std::endl;
 	for (int th = 0; th < odb.nr_merge_th; th++){
 		print_thread_time(th, mrg_time);
 	}
