@@ -51,14 +51,6 @@ opt_init(struct opt_t *odb)				/* option database */
 	odb->mrg_wrbuf = /*1MB*/ 1*1024*1024;		/* available write buffer per merge thread */
 }
 
-static char*
-get_option(char **begin, char **end, const std::string &option){
-	char ** itr = std::find(begin, end, option);
-	if (itr != end && ++itr != end){
-		return *itr;
-	}
-	return 0;
-}
 
 static std::string
 char_to_str(char* a, int size){
@@ -70,13 +62,54 @@ char_to_str(char* a, int size){
 	return s;
 }
 
+static void
+usage(){
+	std::cout << "\n    [  Parallel External Sorting  ]" << std::endl;
+	std::cout << "\n	< USAGE: " ;
+	std::cout << " ./extsort <options> > \n" << std::endl;
+	std::cout << "	-h        | Usage" << std::endl;
+	std::cout << "	-G        | Generate a new data file (default: false)" << std::endl;
+	std::cout << "	-R        | Do run formation (default: true)" << std::endl;
+	std::cout << "	-M        | Do merge (default: true)" << std::endl;
+	std::cout << "	-P        | Profile the overall performance (default: true)" << std::endl;
+	std::cout << "	-V        | Verify during the procedures (default: false)" << std::endl;
+	std::cout << "	-c  <opt> | Clear files after test (default: 1)" << std::endl;
+	std::cout << "                  | (0: none / 1: run / 2: run+input)" << std::endl;
+	std::cout << "	-t  <opt> | Metadata(=range table) path" << std::endl;
+	std::cout << "	-i  <opt> | Input file path" << std::endl;
+	std::cout << "	-o  <opt> | Output file path" << std::endl;
+	std::cout << "	-r  <opt> | Run file path" << std::endl;
+	std::cout << "	-d  <opt> | Data(input) file size to be sorted (default: 1GB)" << std::endl;
+	std::cout << "	-m  <opt> | Memory capacity to be used (default: 128MB)" << std::endl;
+	std::cout << "	-t  <opt> | Number of threads to be used (default: 4)\n" << std::endl;
+}
+
+static char*
+get_option(char **begin, char **end, const std::string &option){
+	char ** itr = std::find(begin, end, option);
+	if (itr != end && ++itr != end){
+		return *itr;
+	}
+	return 0;
+}
+
+static bool
+set_flag(char **begin, char **end, const std::string &option){
+	char ** itr = std::find(begin, end, option);
+	if (itr != end){
+		return 1;
+	}
+	return 0;
+}
+
 void
 opt_parse(int argc, char *argv[], struct opt_t *odb){
-	char *gen = get_option(argv, argv + argc, "-G");
-	char *rnf = get_option(argv, argv + argc, "-R");
-	char *mrg = get_option(argv, argv + argc, "-M");
-	char *prf = get_option(argv, argv + argc, "-P");
-	char *vrf = get_option(argv, argv + argc, "-V");
+	bool hlp = set_flag(argv, argv + argc, "-h");
+	bool gen = set_flag(argv, argv + argc, "-G");
+	bool rnf = set_flag(argv, argv + argc, "-R");
+	bool mrg = set_flag(argv, argv + argc, "-M");
+	bool prf = set_flag(argv, argv + argc, "-P");
+	bool vrf = set_flag(argv, argv + argc, "-V");
 	char *clr = get_option(argv, argv + argc, "-C");
 	char *tablepath = get_option(argv, argv + argc, "-t");
 	char *inpath = get_option(argv, argv + argc, "-i");
@@ -86,23 +119,27 @@ opt_parse(int argc, char *argv[], struct opt_t *odb){
 	char *memsize = get_option(argv, argv + argc, "-m");
 	char *th = get_option(argv, argv + argc, "-w");
 
+	if(hlp){
+		usage();
+		exit(1);
+	}
 	if(gen){
-		odb->datagen = atoi(gen);
+		odb->datagen = true;
 	}
 	if(rnf){
-		odb->runform = atoi(rnf);
+		odb->runform = true;
 	}
 	if(mrg){
-		odb->merge = atoi(mrg);
+		odb->merge = true;
 	}
 	if(vrf){
-		do_verify = atoi(vrf);
+		do_verify = true;
 	}
 	if(prf){
-		do_profile = atoi(prf);
+		do_profile = true;
 	}
 	if(clr){
-		do_clear = atoi(clr);
+		do_clear = true;
 	}
 	if(tablepath){
 		odb->metapath = char_to_str(tablepath, sizeof(tablepath)/sizeof(char));
