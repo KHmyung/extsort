@@ -3,145 +3,94 @@
 #include "extsort.h"
 
 #define NSTOS(ns)	(ns/1000000000)
+#define NSTOMS(ns)	(ns/1000000)
 
-struct time_profile mytime;
-
-static struct Data* alloc_buf(int64_t size){
-	void *mem;
-
-	posix_memalign(&mem, 4096, size);
-	Data *tmp = new (mem) Data;
-
-	return tmp;
+static void
+print_time(const char *name, unsigned long long time){
+	std::cout << name << ": " << NSTOS(time) << std::endl; 
 }
 
+static void
+print_thread_time(int id, struct TimeFormat time){
+	std::cout << "  " << id << ": " << NSTOS(time.arrival_t[id]) << " "
+				<< NSTOS(time.sort_t[id]) << " "
+				<< NSTOS(time.read_t[id]) << " "
+				<< NSTOS(time.write_t[id]) << std::endl;
+}
 
-void PrintStat(void* data){
-	/*
+static void
+stat_threads(struct TimeStats *stats, struct TimeFormat src, int nr_thread){
+	
+	stats->first_time = src.arrival_t[0];
+	stats->last_time = 0;
+	stats->avg_total = 0;
+	stats->avg_sort = 0;
+	stats->avg_read = 0;
+	stats->avg_write = 0;
+	
+	for (int th = 0; th < nr_thread; th++){
+		if(stats->last_time < src.arrival_t[th]){
+			stats->last_time = src.arrival_t[th];
+		}
+		if(stats->first_time > src.arrival_t[th]){
+			stats->first_time = src.arrival_t[th];
+		}
+		stats->avg_total += src.arrival_t[th];
+		stats->avg_sort += src.sort_t[th];
+		stats->avg_read += src.read_t[th];
+		stats->avg_write += src.write_t[th];
+	}
+
+	stats->avg_total /= nr_thread;
+	stats->avg_sort /= nr_thread;
+	stats->avg_read /= nr_thread;
+	stats->avg_write /= nr_thread;
+}
+
+void 
+ShowStats(void* data){
 	struct opt_t odb = *(struct opt_t *)data;
-	int runform_first =0;
-	int runform_last =0;
-        int merge_last =0;
-        int merge_first =0;			
-	unsigned long long last_arrival = 0;		// time value
-	unsigned long long first_arrival = 0;		// time value
-	unsigned long long rf_arrival = 0;		// sum and avg
-	unsigned long long rf_read = 0;			// sum and avg
-	unsigned long long rf_write = 0;		// sum and avg
-	unsigned long long rf_sort = 0;			// sum and avg
-	unsigned long long mrg_arrival = 0;		// sum and avg
-	unsigned long long mrg_read = 0;		// sum and avg
-	unsigned long long mrg_write = 0;		// sum and avg
-	unsigned long long mrg_sort = 0;		// sum and avg
-	int nrth_mrg = 0;
+	struct TimeStats run_stat;
+	struct TimeStats mrg_stat;
 
-	std::cout << "------------------TOTAL TIME(s)---------------------" << std::endl;
-	std::cout << "TOTAL: " << (runformation_time +  merge_time)/1000000000 << std::endl;
-	std::cout << "RUNFORMATION: " << runformation_time/1000000000 << std::endl;
-	std::cout << "RANGE_MERGE: " << merge_time/1000000000 << std::endl;
+	stat_threads(&run_stat, run_time, odb.nr_runform_th);
+	stat_threads(&mrg_stat, mrg_time, odb.nr_merge_th);
 
-#if DO_PROFILE
-	std::cout << "-----------------DETAILED PROFILE-------------------" << std::endl;
-	first_arrival = runform_arrival_time[0];
-	for (int th = 0; th < odb.nr_runform_th; th++){		// runformation profile
-		if(last_arrival < runform_arrival_time[th]){
-			last_arrival = runform_arrival_time[th];
-			runform_last = th;
-		}
-		if(first_arrival > runform_arrival_time[th]){
-			first_arrival = runform_arrival_time[th];
-			runform_first = th;
-		}
-		rf_arrival += runform_arrival_time[th];
-		rf_read += runform_read_time[th];
-		rf_write += runform_write_time[th];
-		rf_sort += runform_sort_time[th];
+	std::cout << "\n<PROFILE>" << std::endl;
+	
+	print_time(" Total        ", run_time.total_t + mrg_time.total_t);
+	print_time(" RunFormation ", run_time.total_t);
+	print_time(" Merge        ", mrg_time.total_t);
+	
+	std::cout << "\n<STATS>" << std::endl;
+	print_time("  AVG  Total        ", run_stat.avg_total + mrg_stat.avg_total);
+	print_time("  AVG  RunFormation ", run_stat.avg_total);
+	print_time("       Sort         ", run_stat.avg_sort);
+	print_time("       Read         ", run_stat.avg_read);
+	print_time("       Write        ", run_stat.avg_write);
+	print_time(" FIRST RunFormation ", run_stat.first_time);
+	print_time("  LAST RunFormation ", run_stat.last_time);
+	print_time("  AVG  Merge        ", mrg_stat.avg_total);
+	print_time("       Sort         ", mrg_stat.avg_sort);
+	print_time("       Read         ", mrg_stat.avg_read);
+	print_time("       Write        ", mrg_stat.avg_write);
+	print_time(" FIRST Merge        ", mrg_stat.first_time);
+	print_time("  LAST Merge        ", mrg_stat.last_time);
+	
+	std::cout << "\n<THREADS STATS | ";
+	std::cout << "(id) | (Total),(Sort),(Read),(Write)>" << std::endl;	
+	std::cout << "Run Formation" << std::endl;
+	for (int th = 0; th < odb.nr_runform_th; th++){
+		print_thread_time(th, run_time);	
 	}
-	rf_arrival = rf_arrival/odb.nr_runform_th;
-	rf_read = rf_read/odb.nr_runform_th;
-	rf_write = rf_write/odb.nr_runform_th;
-	rf_sort = rf_sort/odb.nr_runform_th;
-	last_arrival = 0;
-	first_arrival = merge_arrival_time[0];
-
-	if(NRTH_MRG >= 16){
-		nrth_mrg = NRTH_MRG-1;
-	}else nrth_mrg = NRTH_MRG;
-
-	for (int th = 0; th < nrth_mrg; th++){		// merge profile
-		if(last_arrival < merge_arrival_time[th]){
-			last_arrival = merge_arrival_time[th];
-			merge_last = th;
-		}
-		if(first_arrival > merge_arrival_time[th]){
-			first_arrival = merge_arrival_time[th];
-			merge_first = th;
-		}
-		mrg_arrival += merge_arrival_time[th];
-		mrg_read += merge_read_time[th];
-		mrg_write += merge_write_time[th];
-		mrg_sort += merge_sort_time[th];
+	std::cout << "Merge" << std::endl;
+	for (int th = 0; th < odb.nr_merge_th; th++){
+		print_thread_time(th, mrg_time);	
 	}
-	mrg_arrival = mrg_arrival/nrth_mrg;
-	mrg_read = mrg_read/nrth_mrg;
-	mrg_write = mrg_write/nrth_mrg;
-	mrg_sort = mrg_sort/nrth_mrg;
-
-	std::cout << "[RF-FIRST-ARRIVAL-TH" << runform_first << "] " << runform_arrival_time[runform_first]/1000000000 << std::endl;
-	std::cout << "[RF-FIRST-READ-TH" << runform_first << "] " << runform_read_time[runform_first]/1000000000 << std::endl;
-	std::cout << "[RF-FIRST-WRITE-TH" << runform_first << "] " << runform_write_time[runform_first]/1000000000 << std::endl;
-	std::cout << "[RF-FIRST-SORT-TH" << runform_first << "] " << runform_sort_time[runform_first]/1000000000 << std::endl;
-	std::cout << "[RF-LAST-ARRIVAL-TH" << runform_last << "] " << runform_arrival_time[runform_last]/1000000000 << std::endl;
-	std::cout << "[RF-LAST-READ-TH" << runform_last << "] " << runform_read_time[runform_last]/1000000000 << std::endl;
-	std::cout << "[RF-LAST-WRITE-TH" << runform_last << "] " << runform_write_time[runform_last]/1000000000 << std::endl;
-	std::cout << "[RF-LAST-SORT-TH" << runform_last << "] " << runform_sort_time[runform_last]/1000000000 << std::endl;
-	std::cout << "[RF-AVG-ARRIVAL] " << rf_arrival/1000000000 << std::endl;
-	std::cout << "[RF-AVG-READ] " << rf_read/1000000000 << std::endl;
-	std::cout << "[RF-AVG-WRITE] " << rf_write/1000000000 << std::endl;
-	std::cout << "[RF-AVG-SORT] " << rf_sort/1000000000 << std::endl;
-
-	std::cout << "[MRG-FIRST-ARRIVAL-TH" << merge_first << "] " << merge_arrival_time[merge_first]/1000000000 << std::endl;
-	std::cout << "[MRG-FIRST-READ-TH" << merge_first << "] " << merge_read_time[merge_first]/1000000000 << std::endl;
-	std::cout << "[MRG-FIRST-WRITE-TH" << merge_first << "] " << merge_write_time[merge_first]/1000000000 << std::endl;
-	std::cout << "[MRG-FIRST-SORT-TH" << merge_first << "] " << merge_sort_time[merge_first]/1000000000 << std::endl;
-	std::cout << "[MRG-LAST-ARRIVAL-TH" << merge_last << "] " << merge_arrival_time[merge_last]/1000000000 << std::endl;
-	std::cout << "[MRG-LAST-READ-TH" << merge_last << "] " << merge_read_time[merge_last]/1000000000 << std::endl;
-	std::cout << "[MRG-LAST-WRITE-TH" << merge_last << "] " << merge_write_time[merge_last]/1000000000 << std::endl;
-	std::cout << "[MRG-LAST-SORT-TH" << merge_last << "] " << merge_sort_time[merge_last]/1000000000 << std::endl;
-	std::cout << "[MRG-AVG-ARRIVAL] " << mrg_arrival/1000000000 << std::endl;
-	std::cout << "[MRG-AVG-READ] " << mrg_read/1000000000 << std::endl;
-	std::cout << "[MRG-AVG-WRITE] " << mrg_write/1000000000 << std::endl;
-	std::cout << "[MRG-AVG-SORT] " << mrg_sort/1000000000 << std::endl;
-
-	for (int th = 0; th < odb.nr_runform_th; th++){		
-		std::cout << "[RF-READ-TH" << th << "] " << runform_read_time[th]/1000000000 << std::endl;
-	}
-	for (int th = 0; th < odb.nr_runform_th; th++){		
-		std::cout << "[RF-WRITE-TH" << th << "] " << runform_write_time[th]/1000000000 << std::endl;
-	}
-	for (int th = 0; th < odb.nr_runform_th; th++){		
-		std::cout << "[RF-SORT-TH" << th << "] " << runform_sort_time[th]/1000000000 << std::endl;
-	}
-	for (int th = 0; th < odb.nr_runform_th; th++){		
-		std::cout << "[RF-ARRIVAL-TH" << th << "] " << runform_arrival_time[th]/1000000000 << std::endl;
-	}
-	for (int th = 0; th < NRTH_MRG; th++){		
-		std::cout << "[MRG-READ-TH" << th << "] " << merge_read_time[th]/1000000000 << std::endl;
-	}
-	for (int th = 0; th < NRTH_MRG; th++){		
-		std::cout << "[MRG-WRITE-TH" << th << "] " << merge_write_time[th]/1000000000 << std::endl;
-	}
-	for (int th = 0; th < NRTH_MRG; th++){		
-		std::cout << "[MRG-SORT-TH" << th << "] " << merge_sort_time[th]/1000000000 << std::endl;
-	}
-	for (int th = 0; th < NRTH_MRG; th++){		
-		std::cout << "[MRG-ARRIVAL-TH" << th << "] " << merge_arrival_time[th]/1000000000 << std::endl;
-	}
-#endif
-	*/
 }
 
-int main(void){
+int 
+main(void){
 
 	int res = 0;
 	
@@ -154,6 +103,7 @@ int main(void){
 	opt_init(opt);
 	opt_print(opt);
 	
+	std::cout << "\n<START TEST>"	<< std::endl;
 #if DO_DATAGEN
 	std::cout << "DATA GENERATION" << std::endl;
 	DataGeneration(opt);
@@ -161,23 +111,22 @@ int main(void){
 
 #if DO_RUNFORM
 	clock_gettime(CLOCK_MONOTONIC, &local_time[0]);
-	std::cout << "RUNFORMATION" << std::endl;
+	std::cout << "RUN FORMATION" << std::endl;
 	RunFormation(opt);
 	clock_gettime(CLOCK_MONOTONIC, &local_time[1]);
-	calclock(local_time, &run_time.runform_t, &run_time.runform_c);
-	std::cout << "[RUNFORMATION: " << NSTOS(run_time.runform_t) << "s]" << std::endl;
+	calclock(local_time, &run_time.total_t, &run_time.total_c);
 #endif
 
 #if DO_MERGE	
 	clock_gettime(CLOCK_MONOTONIC, &local_time[0]);
-	std::cout << "MERGE" << std::endl;
+	std::cout << "MERGING" << std::endl;
         Merge(opt);
 	clock_gettime(CLOCK_MONOTONIC, &local_time[1]);
-	calclock(local_time, &mrg_time.merge_t, &mrg_time.merge_c);
-	std::cout << "[MERGE: " << NSTOS(mrg_time.merge_t) << "s]" << std::endl;
+	calclock(local_time, &mrg_time.total_t, &mrg_time.total_c);
 #endif
-	
-	//PrintStat();
+	std::cout << "<TEST FINISHED>" << std::endl;	
+
+	ShowStats(opt);
 	free(opt);
 	return 0; 
 }

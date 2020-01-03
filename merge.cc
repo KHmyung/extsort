@@ -1,22 +1,22 @@
 #include "merge.h"
 
-struct MergeTime mrg_time;
+struct TimeFormat mrg_time;
 
 static unsigned long long * __time_alloc(int nr){
 	return (unsigned long long *)calloc(nr, sizeof(unsigned long long));
 }
 
-static void time_init(int nr_thread, struct MergeTime *time){
-	time->merge_t = 0;
-	time->merge_c = 0;
-	time->merge_arrival_t = __time_alloc(nr_thread);
-	time->merge_arrival_c = __time_alloc(nr_thread);
-	time->merge_read_t = __time_alloc(nr_thread);
-	time->merge_read_c = __time_alloc(nr_thread);
-	time->merge_write_t = __time_alloc(nr_thread);
-	time->merge_write_c = __time_alloc(nr_thread);
-	time->merge_sort_t = __time_alloc(nr_thread);
-	time->merge_sort_c = __time_alloc(nr_thread);
+static void time_init(int nr_thread, struct TimeFormat *time){
+	time->total_t = 0;
+	time->total_c = 0;
+	time->arrival_t = __time_alloc(nr_thread);
+	time->arrival_c = __time_alloc(nr_thread);
+	time->read_t = __time_alloc(nr_thread);
+	time->read_c = __time_alloc(nr_thread);
+	time->write_t = __time_alloc(nr_thread);
+	time->write_c = __time_alloc(nr_thread);
+	time->sort_t = __time_alloc(nr_thread);
+	time->sort_c = __time_alloc(nr_thread);
 }
 
 static struct Data* 
@@ -51,8 +51,8 @@ refill_buffer(struct RunInfo *ri, uint64_t size, int id, int first){
 
 #if DO_PROFILE
 	clock_gettime(CLOCK_MONOTONIC, &local_time[1]);
-	calclock(local_time, &mrg_time.merge_read_t[id], 
-			     &mrg_time.merge_read_c[id]);
+	calclock(local_time, &mrg_time.read_t[id], 
+			     &mrg_time.read_c[id]);
 #endif
 }
 
@@ -68,8 +68,8 @@ flush_buffer(int fd, char* buf, int size, int id)
 	assert(tmp_write == size);
 #if DO_PROFILE
 	clock_gettime(CLOCK_MONOTONIC, &local_time[1]);
-	calclock(local_time, &mrg_time.merge_write_t[id], 
-			     &mrg_time.merge_write_c[id]);
+	calclock(local_time, &mrg_time.write_t[id], 
+			     &mrg_time.write_c[id]);
 #endif
 }
 
@@ -278,12 +278,12 @@ static void
 
 #if DO_PROFILE
 	clock_gettime(CLOCK_MONOTONIC, &thread_time[1]);
-	calclock(thread_time, &mrg_time.merge_arrival_t[range_i->id],
-		              &mrg_time.merge_arrival_c[range_i->id]);
-	mrg_time.merge_sort_t[range_i->id] 
-		= mrg_time.merge_arrival_t[range_i->id] -
-		  mrg_time.merge_read_t[range_i->id] -
-		  mrg_time.merge_write_t[range_i->id];		
+	calclock(thread_time, &mrg_time.arrival_t[range_i->id],
+		              &mrg_time.arrival_c[range_i->id]);
+	mrg_time.sort_t[range_i->id] 
+		= mrg_time.arrival_t[range_i->id] -
+		  mrg_time.read_t[range_i->id] -
+		  mrg_time.write_t[range_i->id];		
 #endif
 	close(fd_output);
 

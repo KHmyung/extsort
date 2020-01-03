@@ -1,22 +1,22 @@
 #include "runformation.h"
 
-struct RunformTime run_time;
+struct TimeFormat run_time;
 
 static unsigned long long * __time_alloc(int nr){
 	return (unsigned long long *)calloc(nr, sizeof(unsigned long long));
 }
 
-static void time_init(int nr_thread, struct RunformTime *time){
-	time->runform_t = 0;
-	time->runform_c = 0;
-	time->runform_arrival_t = __time_alloc(nr_thread);
-	time->runform_arrival_c = __time_alloc(nr_thread);
-	time->runform_read_t = __time_alloc(nr_thread);
-	time->runform_read_c = __time_alloc(nr_thread);
-	time->runform_write_t = __time_alloc(nr_thread);
-	time->runform_write_c = __time_alloc(nr_thread);
-	time->runform_sort_t = __time_alloc(nr_thread);
-	time->runform_sort_c = __time_alloc(nr_thread);
+static void time_init(int nr_thread, struct TimeFormat *time){
+	time->total_t = 0;
+	time->total_c = 0;
+	time->arrival_t = __time_alloc(nr_thread);
+	time->arrival_c = __time_alloc(nr_thread);
+	time->read_t = __time_alloc(nr_thread);
+	time->read_c = __time_alloc(nr_thread);
+	time->write_t = __time_alloc(nr_thread);
+	time->write_c = __time_alloc(nr_thread);
+	time->sort_t = __time_alloc(nr_thread);
+	time->sort_c = __time_alloc(nr_thread);
 }
 
 
@@ -170,7 +170,7 @@ refill_buffer(int fd, char *buf, uint64_t size, int id){
 
 #if DO_PROFILE
 	clock_gettime(CLOCK_MONOTONIC, &local_time[1]);
-	calclock(local_time, &run_time.runform_read_t[id], &run_time.runform_read_c[id]);
+	calclock(local_time, &run_time.read_t[id], &run_time.read_c[id]);
 #endif
 }
 
@@ -188,7 +188,7 @@ flush_buffer(int fd, char *buf, uint64_t size, int id){
 
 #if DO_PROFILE
 	clock_gettime(CLOCK_MONOTONIC, &local_time[1]);
-	calclock(local_time, &run_time.runform_write_t[id], &run_time.runform_write_c[id]);
+	calclock(local_time, &run_time.write_t[id], &run_time.write_c[id]);
 #endif
 	return write_byte;
 }
@@ -245,9 +245,10 @@ t_RunFormation(void *data){
 
 #if DO_PROFILE
 	clock_gettime(CLOCK_MONOTONIC, &thread_time[1]);
-	calclock(thread_time, &run_time.runform_arrival_t[th_id], &run_time.runform_arrival_c[th_id]);
-	run_time.runform_sort_t[th_id] = run_time.runform_arrival_t[th_id] - run_time.runform_read_t[th_id] -
-							run_time.runform_write_t[th_id];
+	calclock(thread_time, &run_time.arrival_t[th_id], &run_time.arrival_c[th_id]);
+	run_time.sort_t[th_id] = run_time.arrival_t[th_id] - 
+							run_time.read_t[th_id] -
+							run_time.write_t[th_id];
 #endif
 	free(runbuf);
 

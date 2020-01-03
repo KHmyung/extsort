@@ -47,6 +47,5 @@ opt_print(struct opt_t *odb)
 	assert(odb->mrg_blksize >= 4096);
 	std::cout << "WRITE_UNIT(MERGE):	" << odb->mrg_wrbuf/1024 << "KB" << std::endl;
 	std::cout << "TOTAL ENTRIES:		" << odb->total_size/KV_SIZE << std::endl;
-	std::cout << "\n<START TEST>"	<< std::endl;
 }
 

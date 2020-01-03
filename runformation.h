@@ -11,19 +11,6 @@
 #include <assert.h>
 #include "common.h"
 
-struct RunformTime{
-	unsigned long long runform_t;
-	unsigned long long runform_c;
-	unsigned long long *runform_arrival_t;
-	unsigned long long *runform_arrival_c;
-	unsigned long long *runform_read_t;
-	unsigned long long *runform_read_c; 
-	unsigned long long *runform_write_t; 
-	unsigned long long *runform_write_c;
-	unsigned long long *runform_sort_t;
-	unsigned long long *runform_sort_c; 
-};
-
 struct RunformationArgs{
 	int fd_input;
 	int th_id;
@@ -39,7 +26,7 @@ struct RunformationArgs{
 };
 
 void RunFormation(void*);
-extern struct RunformTime run_time;
+extern struct TimeFormat run_time;
 
 #endif /* __RUNFORMATION_H */
 

@@ -12,20 +12,6 @@
 #include <stdlib.h>
 #include "common.h"
 
-
-struct MergeTime{
-	unsigned long long merge_t;
-	unsigned long long merge_c;
-	unsigned long long *merge_arrival_t;
-	unsigned long long *merge_arrival_c;
-	unsigned long long *merge_read_t;
-	unsigned long long *merge_read_c; 
-	unsigned long long *merge_write_t; 
-	unsigned long long *merge_write_c;
-	unsigned long long *merge_sort_t;
-	unsigned long long *merge_sort_c; 
-};
-
 struct MergeArgs{
 	int th_id;
 	int nr_run;
@@ -59,6 +45,6 @@ struct RunInfo{
 };
 
 void Merge(void*);
-extern struct MergeTime mrg_time;
+extern struct TimeFormat mrg_time;
 
 #endif
