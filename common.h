@@ -35,11 +35,11 @@ struct TimeFormat{
 	unsigned long long *arrival_t;
 	unsigned long long *arrival_c;
 	unsigned long long *read_t;
-	unsigned long long *read_c; 
-	unsigned long long *write_t; 
+	unsigned long long *read_c;
+	unsigned long long *write_t;
 	unsigned long long *write_c;
 	unsigned long long *sort_t;
-	unsigned long long *sort_c; 
+	unsigned long long *sort_c;
 };
 
 
@@ -56,6 +56,8 @@ struct id_Data{
 	}
 };
 
-
+extern int do_verify;
+extern int do_profile;
 
 #endif /* COMMON_H */
+

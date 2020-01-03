@@ -14,14 +14,16 @@
 #define DO_RUNFORM true
 #define DO_MERGE true
 #define DO_VERIFY false
+#define DO_PROFILE true
 
+#define NRTH_DATAGEN 4
 #define NRTH_RUNFORM 4
 #define NRTH_MRG 4
 
 #define KV_SIZE (128)
 #define MAXKEY 1073741824 // 0x40000000 1G(billion) key
 #define NR_FILTER (NRTH_MRG*NRTH_MRG)
-#define FILTER (MAXKEY/NR_FILTER) 
+#define FILTER (MAXKEY/NR_FILTER)
 #define NR_RANGE (NRTH_MRG)
 
 #define RF_BUF_SIZE (MEM_SIZE / NRTH_RUNFORM)
@@ -32,10 +34,11 @@
 #define NR_ENTRIES (TOTAL_DATA_SIZE / KV_SIZE)
 #define NR_ENTRIES_MRG (MRG_SIZE / KV_SIZE)
 
-#define DO_PROFILE true
-#define NRTH_DATAGEN 4
 
 struct opt_t {
+	bool datagen;
+	bool runform;
+	bool merge;
 	std::string inpath;
 	std::string outpath;
 	std::string runpath;
@@ -43,8 +46,8 @@ struct opt_t {
 	int nr_datagen_th;
 	int nr_runform_th;
 	int nr_merge_th;
-	int64_t total_size;
-	int64_t mem_size;
+	uint64_t total_size;
+	uint64_t mem_size;
 	int nr_run;
 	int kv_size;
 	int key_size;

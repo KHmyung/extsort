@@ -29,13 +29,13 @@ static struct Data* alloc_buf(int64_t size){
 	return tmp;
 }
 
-static bool 
+static bool
 compare(struct Data a, struct Data b){
 	return  (a.key < b.key);
 }
 
-static void 
-range_balancing(struct Data* buf, int nr_range, uint64_t size, 
+static void
+range_balancing(struct Data* buf, int nr_range, uint64_t size,
 				int run, uint64_t *range_table, int id)
 {
 	int range = 0;
@@ -55,7 +55,7 @@ range_balancing(struct Data* buf, int nr_range, uint64_t size,
 	if(nr_range > 16){
 		for(int j = 0; j < nr_filter; j++){
 			range_table[range] += buf_filter[j];
-			if((range_table[range] > nr_entries/nr_range) && 
+			if((range_table[range] > nr_entries/nr_range) &&
 					(range < nr_range-1))
 			{
 				range++;
@@ -65,7 +65,7 @@ range_balancing(struct Data* buf, int nr_range, uint64_t size,
 	else {
 		for(int j = 0; j < nr_filter; j++){
 			range_table[range] += buf_filter[j];
-			if((range_table[range] > nr_entries/(nr_range + 1)) && 
+			if((range_table[range] > nr_entries/(nr_range + 1)) &&
 					(range < nr_range-1))
 			{
 				range++;
@@ -88,7 +88,7 @@ reverse_table(uint64_t *table, int nr_run, int nr_range){
 		}
 	}
 
-	memcpy(table, new_table, nr_run * nr_range * sizeof(uint64_t));	
+	memcpy(table, new_table, nr_run * nr_range * sizeof(uint64_t));
 	free(new_table);
 }
 
@@ -102,32 +102,32 @@ print_range(uint64_t *range_table, int nr_range, int nr_run){
 		for(int run = 0; run < nr_run; run++){
 			range_sum += range_table[range * nr_run + run];
 		}
-#if DO_VERIFY
-		std::cout << "range[" << range << "]: " << range_sum << std::endl;
-#endif
+		if(do_verify){
+			std::cout << "range[" << range << "]: " << range_sum << std::endl;
+		}
 		nr_entries += range_sum;
 	}
-	return nr_entries;	
+	return nr_entries;
 }
 
 static void
-calc_start_ofs(uint64_t *range_table, uint64_t *start_ofs, 
+calc_start_ofs(uint64_t *range_table, uint64_t *start_ofs,
 					int boundary, int nr_range, int nr_run)
 {
 	uint64_t ofs;
-	
+
 	for(int run = 0; run < nr_run; run++){
 		ofs = 0;
 		for(int range = 0; range < boundary; range++){
 			ofs += range_table[run * nr_range + range];
-		
-		}	
+
+		}
 		start_ofs[run] = ofs;
 		//std::cout << start_ofs[run] << std::endl;
 	}
 }
 
-static void 
+static void
 range_to_file(uint64_t *range_table, struct opt_t odb){
 	int entries;
 	uint64_t *start_ofs;
@@ -141,59 +141,59 @@ range_to_file(uint64_t *range_table, struct opt_t odb){
 
 	/* switch rows to columns in range table for cache locality in merge phase */
 	reverse_table(&range_table[0], odb.nr_run, odb.nr_merge_th);
-		
+
 	/* show range_run format */
 	entries = print_range(&range_table[0], odb.nr_merge_th, odb.nr_run);
 	assert(entries == odb.total_size/KV_SIZE);
 
 	FILE* meta = fopen(odb.metapath.c_str(), "w+");
-	
-	/* put range table into file */	
+
+	/* put range table into file */
 	fwrite(&range_table[0], sizeof(uint64_t), odb.nr_merge_th * odb.nr_run, meta);
 	fwrite(&start_ofs[0], sizeof(uint64_t), odb.nr_merge_th * odb.nr_run, meta);
-	
+
 	free(start_ofs);
 	fclose(meta);
 }
 
-static void 
+static void
 refill_buffer(int fd, char *buf, uint64_t size, int id){
 	uint64_t read_byte;
 	struct timespec local_time[2];
-	
-#if DO_PROFILE
-	clock_gettime(CLOCK_MONOTONIC, &local_time[0]);
-#endif
+
+	if(do_profile){
+		clock_gettime(CLOCK_MONOTONIC, &local_time[0]);
+	}
 
 	read_byte = read(fd, buf, size);
 	assert(read_byte == size);
 
-#if DO_PROFILE
-	clock_gettime(CLOCK_MONOTONIC, &local_time[1]);
-	calclock(local_time, &run_time.read_t[id], &run_time.read_c[id]);
-#endif
+	if(do_profile){
+		clock_gettime(CLOCK_MONOTONIC, &local_time[1]);
+		calclock(local_time, &run_time.read_t[id], &run_time.read_c[id]);
+	}
 }
 
-static uint64_t 
+static uint64_t
 flush_buffer(int fd, char *buf, uint64_t size, int id){
 	uint64_t write_byte;
 	struct timespec local_time[2];
-	
-#if DO_PROFILE
-	clock_gettime(CLOCK_MONOTONIC, &local_time[0]);
-#endif
+
+	if(do_profile){
+		clock_gettime(CLOCK_MONOTONIC, &local_time[0]);
+	}
 
 	write_byte = write(fd, buf, size);
 	assert(write_byte == size);
 
-#if DO_PROFILE
-	clock_gettime(CLOCK_MONOTONIC, &local_time[1]);
-	calclock(local_time, &run_time.write_t[id], &run_time.write_c[id]);
-#endif
+	if(do_profile){
+		clock_gettime(CLOCK_MONOTONIC, &local_time[1]);
+		calclock(local_time, &run_time.write_t[id], &run_time.write_c[id]);
+	}
 	return write_byte;
 }
 
-static void * 
+static void *
 t_RunFormation(void *data){
 	struct RunformationArgs args = *(struct RunformationArgs*)data;
 	int fd_input = args.fd_input;
@@ -205,60 +205,60 @@ t_RunFormation(void *data){
 	uint64_t blk_size = args.blk_size;
 	uint64_t offset = args.offset;
 	std::string runpath = args.runpath;
-	
+
 	uint64_t *range_table = args.range_table;
 	Data *runbuf = alloc_buf(blk_size);
 
 	int done = 0;
 	uint64_t nbyte_sorted = 0;
-	
+
 	struct timespec thread_time[2];
 
-#if DO_PROFILE
-	clock_gettime(CLOCK_MONOTONIC, &thread_time[0]);
-#endif
+	if(do_profile){
+		clock_gettime(CLOCK_MONOTONIC, &thread_time[0]);
+	}
 
 	while(done < nr_run){
 		refill_buffer(fd_input, (char*)runbuf, blk_size, th_id);
 
-		/* Sort (STL) */	
+		/* Sort (STL) */
 		std::sort(&runbuf[0], &runbuf[blk_size/KV_SIZE], compare);
-		
-		/* gather range statistics from sorted buffer */		
-		range_balancing(&runbuf[0], nr_range, blk_size, run_ofs, 
+
+		/* gather range statistics from sorted buffer */
+		range_balancing(&runbuf[0], nr_range, blk_size, run_ofs,
 				&range_table[nr_range * done], th_id);
 
 		int fd_run = open( (runpath + std::to_string(run_ofs)).c_str(),
-			       	O_DIRECT | O_RDWR | O_CREAT | O_LARGEFILE, 0644);
+				O_DIRECT | O_RDWR | O_CREAT | O_LARGEFILE | O_TRUNC, 0644);
 		assert(fd_run != -1);
-	
-	        int64_t write_byte = flush_buffer(fd_run, (char *)&runbuf[0], blk_size, th_id);
-		nbyte_sorted += write_byte;		
+
+		int64_t write_byte = flush_buffer(fd_run, (char *)&runbuf[0], blk_size, th_id);
+		nbyte_sorted += write_byte;
 
 		done++;
 		run_ofs++;
-		
+
 		close(fd_run);
 	}
 
-	assert(nbyte_sorted == data_size); 
+	assert(nbyte_sorted == data_size);
 
-#if DO_PROFILE
-	clock_gettime(CLOCK_MONOTONIC, &thread_time[1]);
-	calclock(thread_time, &run_time.arrival_t[th_id], &run_time.arrival_c[th_id]);
-	run_time.sort_t[th_id] = run_time.arrival_t[th_id] - 
-							run_time.read_t[th_id] -
-							run_time.write_t[th_id];
-#endif
+	if(do_profile){
+		clock_gettime(CLOCK_MONOTONIC, &thread_time[1]);
+		calclock(thread_time, &run_time.arrival_t[th_id], &run_time.arrival_c[th_id]);
+		run_time.sort_t[th_id] = run_time.arrival_t[th_id] -
+			run_time.read_t[th_id] -
+			run_time.write_t[th_id];
+	}
 	free(runbuf);
 
 	return ((void *)1);
 }
 
-void 
+void
 RunFormation(void* data){
 	struct opt_t odb = *(struct opt_t *)data;
-	
+
 	std::atomic<int> run_id = { 0 };
 
 	/* allocate range table */
@@ -271,11 +271,11 @@ RunFormation(void* data){
 	pthread_t p_thread[odb.nr_runform_th];
 
 	/* initialize timespec variable */
-	time_init(odb.nr_runform_th, &run_time);	
+	time_init(odb.nr_runform_th, &run_time);
 
 	int fd_input = open( odb.inpath.c_str(), O_DIRECT | O_RDONLY);
 	assert(fd_input != -1);
-	
+
 	int data_size = odb.total_size/odb.nr_runform_th;
 	int run_per_thread = odb.nr_run/odb.nr_runform_th;
 	int run_ofs;
@@ -294,19 +294,21 @@ RunFormation(void* data){
 		runformation_args[th_id].runpath = odb.runpath;
 		runformation_args[th_id].range_table = &range_table[run_ofs * odb.nr_merge_th];
 
-		thread_id[th_id] = pthread_create(&p_thread[th_id], NULL, 
+		thread_id[th_id] = pthread_create(&p_thread[th_id], NULL,
 				t_RunFormation, (void*)&runformation_args[th_id]);
 	}
-	
+
 	uint64_t is_ok = 0;
 	for(int th_id = 0; th_id < odb.nr_runform_th; th_id++){
 		pthread_join(p_thread[th_id], (void**)&is_ok);
 	}
-	
-	/* store range table into file */	
+
+	/* store range table into file */
 	range_to_file(&range_table[0], odb);
 	close(fd_input);
 	free(range_table);
+
+
 }
 
 
