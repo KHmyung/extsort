@@ -5,10 +5,6 @@
 #define NSTOS(ns)	(ns/1000000000)
 #define NSTOMS(ns)	(ns/1000000)
 
-int do_profile;
-int do_verify;
-int do_clear;
-
 static void
 print_time(const char *name, unsigned long long time){
 	std::cout << name << ": " << NSTOS(time) << "."
@@ -98,90 +94,6 @@ ShowStats(void* data){
 	}
 }
 
-static char*
-get_option(char **begin, char **end, const std::string &option){
-	char ** itr = std::find(begin, end, option);
-	if (itr != end && ++itr != end){
-		return *itr;
-	}
-	return 0;
-}
-
-static std::string
-char_to_str(char* a, int size){
-	int i;
-	std::string s = "";
-	for (i = 0; i < size; i++){
-		s += a[i];
-	}
-	return s;
-}
-
-static void
-opt_parse(int argc, char *argv[], struct opt_t *odb){
-	char *gen = get_option(argv, argv + argc, "-G");
-	char *rnf = get_option(argv, argv + argc, "-R");
-	char *mrg = get_option(argv, argv + argc, "-M");
-	char *prf = get_option(argv, argv + argc, "-P");
-	char *vrf = get_option(argv, argv + argc, "-V");
-	char *clr = get_option(argv, argv + argc, "-C");
-	char *tablepath = get_option(argv, argv + argc, "-t");
-	char *inpath = get_option(argv, argv + argc, "-i");
-	char *outpath = get_option(argv, argv + argc, "-o");
-	char *runpath = get_option(argv, argv + argc, "-r");
-	char *datasize = get_option(argv, argv + argc, "-d");
-	char *memsize = get_option(argv, argv + argc, "-m");
-	char *th = get_option(argv, argv + argc, "-w");
-
-	if(gen){
-		odb->datagen = atoi(gen);
-	}
-	if(rnf){
-		odb->runform = atoi(rnf);
-	}
-	if(mrg){
-		odb->merge = atoi(mrg);
-	}
-	if(vrf){
-		do_verify = atoi(vrf);
-	}
-	if(prf){
-		do_profile = atoi(prf);
-	}
-	if(clr){
-		do_clear = atoi(clr);
-	}
-	if(tablepath){
-		odb->metapath = char_to_str(tablepath, sizeof(tablepath)/sizeof(char));
-	}
-	if(inpath){
-		odb->inpath = char_to_str(inpath, sizeof(inpath)/sizeof(char));
-	}
-	if(outpath){
-		odb->outpath = char_to_str(outpath, sizeof(outpath)/sizeof(char));
-	}
-	if(runpath){
-		odb->runpath = char_to_str(runpath, sizeof(runpath)/sizeof(char));
-	}
-	if(datasize){
-		odb->total_size = ((uint64_t)atoi(datasize))*1024*1024*1024;
-	}
-	if(memsize){
-		odb->mem_size = ((uint64_t)atoi(memsize))*1024*1024;
-	}
-	if(th){
-		odb->nr_runform_th = atoi(th);
-		odb->nr_merge_th = atoi(th);
-	}
-	if(datasize || memsize || th){
-		odb->nr_run = (odb->total_size/odb->mem_size) * odb->nr_runform_th;
-		assert(odb->nr_run > 0);
-		odb->rf_blksize = (odb->mem_size/odb->nr_runform_th);
-		assert(odb->rf_blksize >= 4096);
-		odb->mrg_blksize = (odb->mem_size/odb->nr_merge_th/odb->nr_run);
-		assert(odb->mrg_blksize >= 4096);
-	}
-}
 
 int
 main(int argc, char *argv[]){

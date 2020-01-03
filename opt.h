@@ -57,7 +57,11 @@ struct opt_t {
 };
 
 void opt_init(struct opt_t *);
+void opt_parse(int, char**, struct opt_t *);
 void opt_print(struct opt_t *);
 
+extern int do_profile;
+extern int do_verify;
+extern int do_clear;
 
 #endif /* OPT_H */
