@@ -7,14 +7,14 @@
  - _Minimize the interference among threads_
 
 ## Usage
-1. Download
+ _1. Download_
  > git clone https://github.com/khmyung/extsort.git
 
-2. Compile
+ _2. Compile_
  > cd extsort
  > make
  
-3. Check options
+ _3. Check options_
  > ./extsort -h
 
-4. Run the external sort
+ _4. Run the external sort_
