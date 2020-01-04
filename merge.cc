@@ -20,7 +20,7 @@ static void time_init(int nr_thread, struct TimeFormat *time){
 }
 
 static struct Data*
-alloc_buf(int64_t size){
+alloc_buf(uint64_t size){
 	void *mem;
 
 	posix_memalign(&mem, 4096, size);
@@ -97,7 +97,7 @@ init_range_info(struct RangeInfo *range_i, struct MergeArgs args){
 	static void
 init_run_info(struct RunInfo *ri, Data* g_blkbuf, uint64_t nr_entries,
 		int fd, int run, int id,
-		int nr_range, int blk_size, uint64_t start_ofs)
+		int nr_range, uint64_t blk_size, uint64_t start_ofs)
 {
 	ri->fd = fd;
 
@@ -177,11 +177,11 @@ static void
 	struct MergeArgs args = *(struct MergeArgs*)data;
 
 	id_Data slot;
-	int blk_size = args.blk_size;
+	uint64_t blk_size = args.blk_size;
 	int nr_run = args.nr_run;
 	int nr_range = args.nr_range;
-	int wrbuf_size = args.wrbuf_size;
-	int nr_entries = args.nr_entries;
+	uint64_t wrbuf_size = args.wrbuf_size;
+	uint64_t nr_entries = args.nr_entries;
 	uint64_t *start_ofs = args.start_ofs;
 	uint64_t *range_table = args.range_table;
 	uint64_t last_key;
@@ -314,7 +314,7 @@ Merge(void* data){
 	file_to_range(&range_table[0], &start_ofs[0], odb);
 
 	uint64_t nr_entries;
-	if(!DO_RUNFORM){
+	if(!odb.runform){
 		nr_entries = print_range(&range_table[0], odb.nr_merge_th, odb.nr_run);
 		assert(nr_entries == odb.total_size/KV_SIZE);
 	}

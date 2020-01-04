@@ -53,16 +53,6 @@ opt_init(struct opt_t *odb)				/* option database */
 }
 
 
-static std::string
-char_to_str(char* a, int size){
-	int i;
-	std::string s = "";
-	for (i = 0; i < size; i++){
-		s += a[i];
-	}
-	return s;
-}
-
 static void
 usage(){
 	std::cout << "\n    [  Parallel External Sorting  ]" << std::endl;
@@ -94,6 +84,25 @@ get_option(char **begin, char **end, const std::string &option){
 	return 0;
 }
 
+static std::string
+char_to_str(char* a){
+	std::string s = "";
+	while(*a != 0){
+		s += *a;
+		a++;
+	}
+	return s;
+}
+
+
+static void
+get_path(char **begin, char **end, const std::string &option, std::string *path){
+	char ** itr = std::find(begin, end, option);
+	if (itr != end && ++itr != end){
+		*path = char_to_str(*itr);
+	}
+}
+
 static bool
 set_flag(char **begin, char **end, const std::string &option){
 	char ** itr = std::find(begin, end, option);
@@ -112,10 +121,6 @@ opt_parse(int argc, char *argv[], struct opt_t *odb){
 	bool prf = set_flag(argv, argv + argc, "-P");
 	bool vrf = set_flag(argv, argv + argc, "-V");
 	char *clr = get_option(argv, argv + argc, "-C");
-	char *tablepath = get_option(argv, argv + argc, "-t");
-	char *inpath = get_option(argv, argv + argc, "-i");
-	char *outpath = get_option(argv, argv + argc, "-o");
-	char *runpath = get_option(argv, argv + argc, "-r");
 	char *datasize = get_option(argv, argv + argc, "-d");
 	char *memsize = get_option(argv, argv + argc, "-m");
 	char *th = get_option(argv, argv + argc, "-w");
@@ -142,18 +147,12 @@ opt_parse(int argc, char *argv[], struct opt_t *odb){
 	if(clr){
 		do_clear = atoi(clr);
 	}
-	if(tablepath){
-		odb->metapath = char_to_str(tablepath, sizeof(tablepath)/sizeof(char));
-	}
-	if(inpath){
-		odb->inpath = char_to_str(inpath, sizeof(inpath)/sizeof(char));
-	}
-	if(outpath){
-		odb->outpath = char_to_str(outpath, sizeof(outpath)/sizeof(char));
-	}
-	if(runpath){
-		odb->runpath = char_to_str(runpath, sizeof(runpath)/sizeof(char));
-	}
+
+	get_path(argv, argv + argc, "-t", &odb->metapath);
+	get_path(argv, argv + argc, "-i", &odb->inpath);
+	get_path(argv, argv + argc, "-o", &odb->outpath);
+	get_path(argv, argv + argc, "-r", &odb->runpath);
+
 	if(datasize){
 		odb->total_size = ((uint64_t)atoi(datasize))*1024*1024*1024;
 	}

@@ -13,8 +13,8 @@ struct DatagenArgs{
 	int fd_input;
 	int th_idx;
 	int nr_thread;
-	int data_size;
-	int mem_size;
+	uint64_t data_size;
+	uint64_t mem_size;
 	uint64_t writeofs;
 };
 

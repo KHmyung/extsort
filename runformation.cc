@@ -20,7 +20,7 @@ static void time_init(int nr_thread, struct TimeFormat *time){
 }
 
 
-static struct Data* alloc_buf(int64_t size){
+static struct Data* alloc_buf(uint64_t size){
 	void *mem;
 
 	posix_memalign(&mem, 4096, size);
@@ -276,7 +276,7 @@ RunFormation(void* data){
 	int fd_input = open( odb.inpath.c_str(), O_DIRECT | O_RDONLY);
 	assert(fd_input != -1);
 
-	int data_size = odb.total_size/odb.nr_runform_th;
+	uint64_t data_size = odb.total_size/odb.nr_runform_th;
 	int run_per_thread = odb.nr_run/odb.nr_runform_th;
 	int run_ofs;
 	for(int th_id = 0; th_id < odb.nr_runform_th; th_id++){

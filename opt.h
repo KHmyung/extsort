@@ -4,7 +4,7 @@
 #include <iostream>
 
 #define META_PATH "../meta.tmp"
-#define INPUT_PATH "../input/in.txt"
+#define INPUT_PATH "/mnt/test/a/input/in.txt"
 #define OUTPUT_PATH "../output/"
 #define RUN_PATH "../runs/"
 #define TOTAL_DATA_SIZE (((int64_t)1*1024*1024*1024))

@@ -16,9 +16,9 @@ struct MergeArgs{
 	int th_id;
 	int nr_run;
 	int nr_range;
-	int blk_size;
-	int wrbuf_size;
 	int *fd_run;
+	uint64_t blk_size;
+	uint64_t wrbuf_size;
 	uint64_t nr_entries;
 	uint64_t *start_ofs;
 	uint64_t *range_table;
