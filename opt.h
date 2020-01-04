@@ -11,10 +11,10 @@
 #define MEM_SIZE (((int64_t)128*1024*1024))
 
 #define DO_DATAGEN false
-#define DO_RUNFORM true
-#define DO_MERGE true
+#define DO_RUNFORM false
+#define DO_MERGE false
 #define DO_VERIFY false
-#define DO_PROFILE true
+#define DO_PROFILE false
 
 #define NRTH_DATAGEN 4
 #define NRTH_RUNFORM 4
@@ -29,7 +29,7 @@
 #define RF_BUF_SIZE (MEM_SIZE / NRTH_RUNFORM)
 #define MRG_BUF_SIZE (1*1024*1024)
 #define BUFFER_SIZE (MEM_SIZE / NRTH_RUNFORM)
-#define NR_RUNS ((TOTAL_DATA_SIZE / MEM_SIZE) * NRTH_RUNFORM)	// 1024
+#define NR_RUNS ((TOTAL_DATA_SIZE / MEM_SIZE) * NRTH_RUNFORM)
 #define NR_ENTRIES_BUFFER (BUFFER_SIZE / KV_SIZE)
 #define NR_ENTRIES (TOTAL_DATA_SIZE / KV_SIZE)
 #define NR_ENTRIES_MRG (MRG_SIZE / KV_SIZE)

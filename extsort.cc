@@ -55,45 +55,60 @@ ShowStats(void* data){
 	struct TimeStats run_stat;
 	struct TimeStats mrg_stat;
 
-	stat_threads(&run_stat, run_time, odb.nr_runform_th);
-	stat_threads(&mrg_stat, mrg_time, odb.nr_merge_th);
+	if(odb.runform)
+		stat_threads(&run_stat, run_time, odb.nr_runform_th);
+	if(odb.merge)
+		stat_threads(&mrg_stat, mrg_time, odb.nr_merge_th);
 
 	std::cout << "\n <PROFILE>" << std::endl;
 
-	print_time("    Total(s)        ", run_time.total_t + mrg_time.total_t);
-	print_time("    RunFormation(s) ", run_time.total_t);
-	print_time("    Merge(s)        ", mrg_time.total_t);
+	if(odb.runform && odb.merge)
+		print_time("    Total(s)        ", run_time.total_t + mrg_time.total_t);
+	if(odb.runform)
+		print_time("    RunFormation(s) ", run_time.total_t);
+	if(odb.merge)
+		print_time("    Merge(s)        ", mrg_time.total_t);
 
 	std::cout << "\n <STATS>" << std::endl;
-	std::cout << "  [-----TOTAL(s)----] " << std::endl;
-	print_time("  AVG  Total        ", run_stat.avg_total + mrg_stat.avg_total);
-	print_time("       -Sort        ", run_stat.avg_sort + mrg_stat.avg_sort);
-	print_time("       -Read        ", run_stat.avg_read + mrg_stat.avg_read);
-	print_time("       -Write       ", run_stat.avg_write + mrg_stat.avg_write);
-	std::cout << "  [-RUNFORMATION(s)-] " << std::endl;
-	print_time(" FIRST Arrival      ", run_stat.first_time);
-	print_time("  LAST Arrival      ", run_stat.last_time);
-	print_time("  AVG  Total        ", run_stat.avg_total);
-	print_time("       -Sort        ", run_stat.avg_sort);
-	print_time("       -Read        ", run_stat.avg_read);
-	print_time("       -Write       ", run_stat.avg_write);
-	std::cout << "  [-----MERGE(s)----] " << std::endl;
-	print_time(" FIRST Arrival      ", mrg_stat.first_time);
-	print_time("  LAST Arrival      ", mrg_stat.last_time);
-	print_time("  AVG  Total        ", mrg_stat.avg_total);
-	print_time("       -Sort        ", mrg_stat.avg_sort);
-	print_time("       -Read        ", mrg_stat.avg_read);
-	print_time("       -Write       ", mrg_stat.avg_write);
+	if(odb.runform && odb.merge){
+		std::cout << "  [-----TOTAL(s)----] " << std::endl;
+		print_time("  AVG  Total        ", run_stat.avg_total + mrg_stat.avg_total);
+		print_time("       -Sort        ", run_stat.avg_sort + mrg_stat.avg_sort);
+		print_time("       -Read        ", run_stat.avg_read + mrg_stat.avg_read);
+		print_time("       -Write       ", run_stat.avg_write + mrg_stat.avg_write);
+	}
+	if(odb.runform){
+		std::cout << "  [-RUNFORMATION(s)-] " << std::endl;
+		print_time(" FIRST Arrival      ", run_stat.first_time);
+		print_time("  LAST Arrival      ", run_stat.last_time);
+		print_time("  AVG  Total        ", run_stat.avg_total);
+		print_time("       -Sort        ", run_stat.avg_sort);
+		print_time("       -Read        ", run_stat.avg_read);
+		print_time("       -Write       ", run_stat.avg_write);
+	}
+	if(odb.merge){
+		std::cout << "  [-----MERGE(s)----] " << std::endl;
+		print_time(" FIRST Arrival      ", mrg_stat.first_time);
+		print_time("  LAST Arrival      ", mrg_stat.last_time);
+		print_time("  AVG  Total        ", mrg_stat.avg_total);
+		print_time("       -Sort        ", mrg_stat.avg_sort);
+		print_time("       -Read        ", mrg_stat.avg_read);
+		print_time("       -Write       ", mrg_stat.avg_write);
+	}
 
 	std::cout << "\n <THREADS STATS>\n ";
 	std::cout << "|  (id)  | (Total) (Sort) (Read) (Write)>" << std::endl;
-	std::cout << " [-RUNFORMATION(s)-] " << std::endl;
-	for (int th = 0; th < odb.nr_runform_th; th++){
-		print_thread_time(th, run_time);
+	if(odb.runform){
+		std::cout << " [-RUNFORMATION(s)-] " << std::endl;
+		for (int th = 0; th < odb.nr_runform_th; th++){
+			print_thread_time(th, run_time);
+		}
 	}
-	std::cout << " [---- MERGE(s)----] " << std::endl;
-	for (int th = 0; th < odb.nr_merge_th; th++){
-		print_thread_time(th, mrg_time);
+	if(odb.merge){
+		std::cout << " [---- MERGE(s)----] " << std::endl;
+		for (int th = 0; th < odb.nr_merge_th; th++){
+			print_thread_time(th, mrg_time);
+		}
 	}
 }
 
@@ -154,14 +169,14 @@ main(int argc, char *argv[]){
 		std::cout << " <TEST FINISHED>" << std::endl;
 	}
 
-	if(do_clear > 0){		/* deleting run files */
+	if(opt->runform && do_clear > 0){		/* deleting run files */
 		for(int i = 0; i < opt->nr_run; i++){
 			int res = remove( (opt->runpath + std::to_string(i)).c_str());
 			assert(res == 0);
 		}
 	}
-
-	ShowStats(opt);
+	if(opt->runform || opt->merge)
+		ShowStats(opt);
 	free(opt);
 
 	if(opt->runform)

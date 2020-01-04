@@ -18,6 +18,7 @@ opt_init(struct opt_t *odb)				/* option database */
 	odb->merge = DO_MERGE;
 	do_verify = DO_VERIFY;
 	do_profile = DO_PROFILE;
+	do_clear = 1;
 	odb->inpath = INPUT_PATH;			/* path to input file */
 	odb->outpath = OUTPUT_PATH;			/* path to output files */
 	odb->outpath += "range_";
@@ -69,9 +70,9 @@ usage(){
 	std::cout << " ./extsort <options> > \n" << std::endl;
 	std::cout << "	-h        | Usage" << std::endl;
 	std::cout << "	-G        | Generate a new data file (default: false)" << std::endl;
-	std::cout << "	-R        | Do run formation (default: true)" << std::endl;
-	std::cout << "	-M        | Do merge (default: true)" << std::endl;
-	std::cout << "	-P        | Profile the overall performance (default: true)" << std::endl;
+	std::cout << "	-R        | Do run formation (default: false)" << std::endl;
+	std::cout << "	-M        | Do merge (default: false)" << std::endl;
+	std::cout << "	-P        | Profile the overall performance (default: false)" << std::endl;
 	std::cout << "	-V        | Verify during the procedures (default: false)" << std::endl;
 	std::cout << "	-c  <opt> | Clear files after test (default: 1)" << std::endl;
 	std::cout << "                  | (0: none / 1: run / 2: run+input)" << std::endl;
@@ -139,7 +140,7 @@ opt_parse(int argc, char *argv[], struct opt_t *odb){
 		do_profile = true;
 	}
 	if(clr){
-		do_clear = true;
+		do_clear = atoi(clr);
 	}
 	if(tablepath){
 		odb->metapath = char_to_str(tablepath, sizeof(tablepath)/sizeof(char));
