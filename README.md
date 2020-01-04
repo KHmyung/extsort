@@ -12,6 +12,7 @@
 
  _2. Compile the codes_
  > cd extsort
+ 
  > make
  
  _3. Check options_
