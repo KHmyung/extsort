@@ -16,7 +16,7 @@
 #define DO_VERIFY false
 #define DO_PROFILE false
 
-#define NRTH_DATAGEN 4
+#define NRTH_DATAGEN 16
 #define NRTH_RUNFORM 4
 #define NRTH_MRG 4
 
@@ -51,9 +51,9 @@ struct opt_t {
 	int nr_run;
 	int kv_size;
 	int key_size;
-	int rf_blksize;
-	int mrg_blksize;
-	int mrg_wrbuf;
+	uint64_t rf_blksize;
+	uint64_t mrg_blksize;
+	uint64_t mrg_wrbuf;
 };
 
 void opt_init(struct opt_t *);
