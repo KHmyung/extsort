@@ -1,16 +1,22 @@
-## External Merge Sort
+# External Merge Sort
 
-1. Utilize multi-processors.
-2. Refelct storage characteristics.
+## Goal
 
-# Usage
+ - _Exploits the parallelism of resources such as processors, storages_
+ 
+ - _Minimize the interference among threads_
 
-1. Modify opt.h
-  - set input/run(temporary)/meta(temporary)/output file path
-  - set configurations (memory/file/kv size/threads)
+## Usage
+ _1. Download the source files_
+ > git clone https://github.com/khmyung/extsort.git
 
-2. Compile
-  - make
+ _2. Compile the codes_
+ > cd extsort
+ 
+ > make
+ 
+ _3. Check options_
+ > ./extsort -h
 
-3. Run extsort
-  - ./extsort
+ _4. Run the external sort_
+ > (example) ./extsort -G -R -M -P -d 1 -m 128 -t 4
