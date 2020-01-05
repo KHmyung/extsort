@@ -123,7 +123,6 @@ calc_start_ofs(uint64_t *range_table, uint64_t *start_ofs,
 
 		}
 		start_ofs[run] = ofs;
-		//std::cout << start_ofs[run] << std::endl;
 	}
 }
 
@@ -157,15 +156,15 @@ range_to_file(uint64_t *range_table, struct opt_t odb){
 }
 
 static void
-refill_buffer(int fd, char *buf, uint64_t size, int id){
-	uint64_t read_byte;
+refill_buffer(int fd, char *buf, int64_t size, int id){
+	int64_t read_byte = 0;
 	struct timespec local_time[2];
 
 	if(do_profile){
 		clock_gettime(CLOCK_MONOTONIC, &local_time[0]);
 	}
 
-	read_byte = read(fd, buf, size);
+	read_byte = ReadData(fd, &buf[0], size);
 	assert(read_byte == size);
 
 	if(do_profile){
@@ -175,15 +174,15 @@ refill_buffer(int fd, char *buf, uint64_t size, int id){
 }
 
 static uint64_t
-flush_buffer(int fd, char *buf, uint64_t size, int id){
-	uint64_t write_byte;
+flush_buffer(int fd, char *buf, int64_t size, int id){
+	int64_t write_byte = 0;
 	struct timespec local_time[2];
 
 	if(do_profile){
 		clock_gettime(CLOCK_MONOTONIC, &local_time[0]);
 	}
 
-	write_byte = write(fd, buf, size);
+	write_byte += WriteData(fd, &buf[0], size);
 	assert(write_byte == size);
 
 	if(do_profile){

@@ -29,20 +29,21 @@ alloc_buf(uint64_t size){
 	return tmp;
 }
 
-static void
-refill_buffer(struct RunInfo *ri, uint64_t size, int id, int first){
+static int
+refill_buffer(struct RunInfo *ri, int64_t size, int id, int first){
 	struct timespec local_time[2];
 
 	if(do_profile){
 		clock_gettime(CLOCK_MONOTONIC, &local_time[0]);
 	}
-	int64_t tmp_read = pread(ri->fd, (char*)&ri->blkbuf[0], size, ri->read_ofs);
-	assert(tmp_read == size);
+	int64_t read_byte = pReadData(ri->fd, (char*)&ri->blkbuf[0], size, ri->read_ofs);
+	if(read_byte != 0)
+		assert(read_byte == size);
+	ri->read_ofs += read_byte;
+	ri->run_ofs++;
 
-	ri->read_ofs += tmp_read;
 	if(!first)
 		ri->blk_ofs = 0;
-	ri->run_ofs++;
 
 	if(do_verify){
 		for(int i = 0; i < (size/KV_SIZE) - 1; i++){
@@ -54,20 +55,20 @@ refill_buffer(struct RunInfo *ri, uint64_t size, int id, int first){
 		clock_gettime(CLOCK_MONOTONIC, &local_time[1]);
 		calclock(local_time, &mrg_time.read_t[id], &mrg_time.read_c[id]);
 	}
+	if(read_byte == 0)
+		return 0;
 }
 
 static void
-flush_buffer(int fd, char* buf, int size, int id)
+flush_buffer(int fd, char* buf, int64_t size, int id)
 {
 	struct timespec local_time[2];
 
 	if(do_profile){
 		clock_gettime(CLOCK_MONOTONIC, &local_time[0]);
 	}
-
-	int64_t tmp_write = write(fd, (char*)buf, size);
-	assert(tmp_write == size);
-
+	int64_t write_byte = WriteData(fd, &buf[0], size);
+	assert(write_byte == size);
 	if(do_profile){
 		clock_gettime(CLOCK_MONOTONIC, &local_time[1]);
 		calclock(local_time, &mrg_time.write_t[id],
@@ -262,7 +263,8 @@ static void
 						= run_i[slot.run_id].remainder;
 					memset(&run_i[slot.run_id].blkbuf[0], 0, blk_size);
 				}
-				refill_buffer(&run_i[slot.run_id], blk_size, range_i->id, 0);
+				int ret = refill_buffer(&run_i[slot.run_id], blk_size, range_i->id, 0);
+				if(ret == 0) continue;
 			}
 		}
 		/* put one into tournament */

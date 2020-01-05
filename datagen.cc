@@ -51,9 +51,9 @@ t_DataGeneration(void* data){
 		nbyte_buffer += KV_SIZE;
 
 		if(nbyte_buffer == mem_size){
-			int64_t tmp_write = pwrite(fd_input, (char*)&genbuf[0], mem_size, writeofs);
-			assert(tmp_write == mem_size);
-			writeofs += tmp_write;
+			uint64_t write_byte = pWriteData(fd_input, (char*)&genbuf[0], mem_size, writeofs);
+			assert(write_byte == mem_size);
+			writeofs += write_byte;
 
 			nbyte_written += nbyte_buffer;
 			nbyte_buffer = 0;
