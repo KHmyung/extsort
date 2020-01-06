@@ -19,10 +19,8 @@ struct RunformationArgs{
 	int nr_range;
 	uint64_t data_size;
 	uint64_t blk_size;
-	uint64_t offset;
 	uint64_t *range_table;
-	std::atomic<int> *run_id;
-	std::string runpath;
+	std::string *runpath;
 };
 
 void RunFormation(void*);

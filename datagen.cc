@@ -29,12 +29,12 @@ t_DataGeneration(void* data){
 
 	struct DatagenArgs args = *(struct DatagenArgs*)data;
 	int fd_input = args.fd_input;
-	int th_idx = args.th_idx;
+	int th_id = args.th_id;
 	int nr_thread = args.nr_thread;
 	uint64_t data_size = args.data_size;
 	uint64_t mem_size = args.mem_size;
 	uint64_t writeofs = args.writeofs;
-	unsigned int seed = (unsigned int)th_idx;
+	unsigned int seed = (unsigned int)th_id;
 
 	Data *genbuf = alloc_buf(mem_size);
 
@@ -70,34 +70,49 @@ void
 DataGeneration(void* data){
 	struct opt_t odb = *(struct opt_t *)data;
 
-	int fd_input = open( odb.inpath.c_str(), O_DIRECT | O_RDWR | O_CREAT | O_TRUNC | O_LARGEFILE, 0644);
-	assert(fd_input > 0);
+	int nr_file = odb.nr_runform_th;
+	int fd_input[nr_file];
 
 	pthread_t p_thread[odb.nr_datagen_th];
 	int thread_id[odb.nr_datagen_th];
 	struct DatagenArgs datagen_args[odb.nr_datagen_th];
 
+	uint64_t writeofs;
+	for(int file = 0; file < nr_file; file++){
 
-	for(int th = 0; th < odb.nr_datagen_th; th++){
-		datagen_args[th].fd_input = fd_input;
-		datagen_args[th].th_idx = th;
-		datagen_args[th].nr_thread = odb.nr_datagen_th;
-		datagen_args[th].data_size = odb.total_size/odb.nr_datagen_th;
-		datagen_args[th].mem_size = odb.mem_size/odb.nr_datagen_th;
-		datagen_args[th].writeofs = th*(odb.total_size/odb.nr_datagen_th);
+		fd_input[file] = open( odb.d_inpath[file].c_str(),
+				O_DIRECT | O_RDWR | O_CREAT | O_TRUNC | O_LARGEFILE, 0644);
+		assert(fd_input > 0);
 
-		thread_id[th] = pthread_create(&p_thread[th], NULL, t_DataGeneration, (void*)&datagen_args[th]);
+		writeofs = 0;
+
+		for(int i = 0; i < odb.nr_datagen_th/odb.nr_runform_th; i++){
+
+			int th_ofs = file*odb.nr_datagen_th/odb.nr_runform_th + i;
+
+			datagen_args[th_ofs].fd_input = fd_input[file];
+			datagen_args[th_ofs].th_id = th_ofs;
+			datagen_args[th_ofs].nr_thread = odb.nr_datagen_th;
+			datagen_args[th_ofs].data_size = odb.total_size/odb.nr_datagen_th;
+			datagen_args[th_ofs].mem_size = odb.mem_size/odb.nr_datagen_th;
+			datagen_args[th_ofs].writeofs = writeofs;
+			writeofs += odb.total_size/odb.nr_datagen_th;
+
+			thread_id[th_ofs] = pthread_create(&p_thread[th_ofs],
+					   	NULL, t_DataGeneration, (void*)&datagen_args[th_ofs]);
+		}
 	}
+
 
 	int is_ok = 0;
 	int res = 0;
 	for(int th = 0; th < odb.nr_datagen_th; th++){
 		pthread_join(p_thread[th], (void **)&is_ok);
-		if(is_ok != 1){
-			res = -1;
-		}
+		assert(is_ok == 1);
 	}
 
-	close(fd_input);
+	for(int file = 0; file < nr_file; file++){
+		close(fd_input[file]);
+	}
 }
 

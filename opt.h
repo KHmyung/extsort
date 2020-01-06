@@ -2,9 +2,10 @@
 #define __OPT_H
 
 #include <iostream>
+#include <vector>
 
 #define META_PATH "../meta.tmp"
-#define INPUT_PATH "../input/in.txt"
+#define INPUT_PATH "../input/"
 #define OUTPUT_PATH "../output/"
 #define RUN_PATH "../runs/"
 #define TOTAL_DATA_SIZE (((int64_t)1*1024*1024*1024))
@@ -15,6 +16,7 @@
 #define DO_MERGE false
 #define DO_VERIFY false
 #define DO_PROFILE false
+#define DO_DIST	false
 
 #define NRTH_DATAGEN 16
 #define NRTH_RUNFORM 4
@@ -43,6 +45,9 @@ struct opt_t {
 	std::string outpath;
 	std::string runpath;
 	std::string metapath;
+	std::vector<std::string> d_inpath;
+	std::vector<std::string> d_runpath;
+	std::vector<std::string> d_outpath;
 	int nr_datagen_th;
 	int nr_runform_th;
 	int nr_merge_th;

@@ -11,7 +11,7 @@
 
 struct DatagenArgs{
 	int fd_input;
-	int th_idx;
+	int th_id;
 	int nr_thread;
 	uint64_t data_size;
 	uint64_t mem_size;

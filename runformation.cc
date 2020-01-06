@@ -1,5 +1,9 @@
 #include "runformation.h"
 
+#define CURR 0
+#define NEXT 1
+#define ALIGN (4096/KV_SIZE)
+
 struct TimeFormat run_time;
 
 static unsigned long long * __time_alloc(int nr){
@@ -34,46 +38,6 @@ compare(struct Data a, struct Data b){
 	return  (a.key < b.key);
 }
 
-static void
-range_balancing(struct Data* buf, int nr_range, uint64_t size,
-				int run, uint64_t *range_table, int id)
-{
-	int range = 0;
-	int nr_filter = nr_range * nr_range;
-	int filter = MAXKEY/nr_filter;
-
-	uint64_t *buf_filter;
-	buf_filter = (uint64_t*)calloc(nr_filter, sizeof(uint64_t));
-	assert(buf_filter != NULL);
-
-	uint64_t nr_entries = size/KV_SIZE;
-
-	for(int i = 0; i < nr_entries; i++){
-		buf_filter[buf[i].key/filter]++;
-	}
-
-	if(nr_range > 16){
-		for(int j = 0; j < nr_filter; j++){
-			range_table[range] += buf_filter[j];
-			if((range_table[range] > nr_entries/nr_range) &&
-					(range < nr_range-1))
-			{
-				range++;
-			}
-		}
-	}
-	else {
-		for(int j = 0; j < nr_filter; j++){
-			range_table[range] += buf_filter[j];
-			if((range_table[range] > nr_entries/(nr_range + 1)) &&
-					(range < nr_range-1))
-			{
-				range++;
-			}
-		}
-	}
-	free(buf_filter);
-}
 
 static void
 reverse_table(uint64_t *table, int nr_run, int nr_range){
@@ -192,6 +156,61 @@ flush_buffer(int fd, char *buf, int64_t size, int id){
 	return write_byte;
 }
 
+static int
+range_record(uint64_t *table, uint64_t *ofs, uint64_t *size, int id){
+	int ofs_align = 0;
+
+	while(table[CURR] % ALIGN){
+		table[CURR]++;
+		ofs_align++;
+	}
+	size[CURR] = table[CURR] * KV_SIZE;
+	ofs[NEXT] = ofs[CURR] + table[CURR];
+
+	return ofs_align;
+}
+
+static void
+range_balancing(struct Data* buf, int nr_range, uint64_t size,
+				int run, uint64_t *range_table,
+				int id, uint64_t *range_ofs, uint64_t *range_size)
+{
+	int check = 0;
+	int range;
+	int nr_filter = nr_range * nr_range;
+	int filter = MAXKEY/nr_filter;
+
+	uint64_t *buf_filter;
+	buf_filter = (uint64_t*)calloc(nr_filter, sizeof(uint64_t));
+	assert(buf_filter != NULL);
+
+	uint64_t nr_entries = size/KV_SIZE;
+	uint64_t boundary = (nr_range > 16) ? (nr_entries/nr_range)
+										: (nr_entries/(nr_range + 1));
+
+	for(int i = 0; i < nr_entries; i++){
+		buf_filter[buf[i].key/filter]++;
+	}
+
+	range_ofs[0] = 0;
+	range = 0;
+
+	for(int j = 0; j < nr_filter; j++){
+		range_table[range] += buf_filter[j];
+		if((range_table[range] > boundary) && (range < nr_range - 1)){
+			int align = range_record(&range_table[range], &range_ofs[range],
+													&range_size[range], id);
+			buf_filter[j+1] -= align;
+			range++;
+		}
+
+
+	}
+	range_size[range] = range_table[range]*KV_SIZE;
+	free(buf_filter);
+}
+
+
 static void *
 t_RunFormation(void *data){
 	struct RunformationArgs args = *(struct RunformationArgs*)data;
@@ -202,11 +221,13 @@ t_RunFormation(void *data){
 	int th_id = args.th_id;
 	uint64_t data_size = args.data_size;
 	uint64_t blk_size = args.blk_size;
-	uint64_t offset = args.offset;
-	std::string runpath = args.runpath;
+	uint64_t offset = 0;
+	std::string *runpath = args.runpath;
 
 	uint64_t *range_table = args.range_table;
 	Data *runbuf = alloc_buf(blk_size);
+	uint64_t range_ofs[nr_range];
+	uint64_t range_size[nr_range];
 
 	int done = 0;
 	uint64_t nbyte_sorted = 0;
@@ -225,19 +246,19 @@ t_RunFormation(void *data){
 
 		/* gather range statistics from sorted buffer */
 		range_balancing(&runbuf[0], nr_range, blk_size, run_ofs,
-				&range_table[nr_range * done], th_id);
+				&range_table[nr_range * done], th_id, &range_ofs[0], &range_size[0]);
 
-		int fd_run = open( (runpath + std::to_string(run_ofs)).c_str(),
-				O_DIRECT | O_RDWR | O_CREAT | O_LARGEFILE | O_TRUNC, 0644);
-		assert(fd_run != -1);
-
-		int64_t write_byte = flush_buffer(fd_run, (char *)&runbuf[0], blk_size, th_id);
-		nbyte_sorted += write_byte;
-
+		for(int range = 0; range < nr_range; range++){
+			int fd_run = open( (runpath[range] + std::to_string(run_ofs)).c_str(),
+					O_DIRECT | O_RDWR | O_CREAT | O_LARGEFILE | O_TRUNC, 0644);
+			assert(fd_run > 0);
+			int64_t write_byte = flush_buffer(fd_run,
+					(char *)&runbuf[range_ofs[range]], range_size[range], th_id);
+			nbyte_sorted += write_byte;
+			close(fd_run);
+		}
 		done++;
 		run_ofs++;
-
-		close(fd_run);
 	}
 
 	assert(nbyte_sorted == data_size);
@@ -258,8 +279,6 @@ void
 RunFormation(void* data){
 	struct opt_t odb = *(struct opt_t *)data;
 
-	std::atomic<int> run_id = { 0 };
-
 	/* allocate range table */
 	uint64_t *range_table;
 	range_table = (uint64_t *)calloc(odb.nr_run, sizeof(uint64_t) * odb.nr_merge_th);
@@ -272,42 +291,41 @@ RunFormation(void* data){
 	/* initialize timespec variable */
 	time_init(odb.nr_runform_th, &run_time);
 
-	int fd_input = open( odb.inpath.c_str(), O_DIRECT | O_RDONLY);
-	assert(fd_input != -1);
-
+	int fd_input[odb.nr_runform_th];
 	uint64_t data_size = odb.total_size/odb.nr_runform_th;
 	int run_per_thread = odb.nr_run/odb.nr_runform_th;
 	int run_ofs;
-	for(int th_id = 0; th_id < odb.nr_runform_th; th_id++){
-		run_ofs = th_id * (odb.nr_run/odb.nr_runform_th);
+	for(int th = 0; th < odb.nr_runform_th; th++){
+		fd_input[th] = open( odb.d_inpath[th].c_str(), O_DIRECT | O_RDONLY);
+		assert(fd_input > 0);
+		run_ofs = th * (odb.nr_run/odb.nr_runform_th);
 
-		runformation_args[th_id].fd_input = fd_input;
-		runformation_args[th_id].th_id = th_id;
-		runformation_args[th_id].run_ofs = run_ofs;
-		runformation_args[th_id].nr_run = run_per_thread;
-		runformation_args[th_id].nr_range = odb.nr_merge_th;
-		runformation_args[th_id].data_size = data_size;
-		runformation_args[th_id].blk_size = odb.rf_blksize;
-		runformation_args[th_id].offset = data_size * run_ofs;
-		runformation_args[th_id].run_id = &run_id;
-		runformation_args[th_id].runpath = odb.runpath;
-		runformation_args[th_id].range_table = &range_table[run_ofs * odb.nr_merge_th];
+		runformation_args[th].fd_input = fd_input[th];
+		runformation_args[th].th_id = th;
+		runformation_args[th].run_ofs = run_ofs;
+		runformation_args[th].nr_run = run_per_thread;
+		runformation_args[th].nr_range = odb.nr_merge_th;
+		runformation_args[th].data_size = data_size;
+		runformation_args[th].blk_size = odb.rf_blksize;
+		runformation_args[th].runpath = &odb.d_runpath[0];
+		runformation_args[th].range_table = &range_table[run_ofs * odb.nr_merge_th];
 
-		thread_id[th_id] = pthread_create(&p_thread[th_id], NULL,
-				t_RunFormation, (void*)&runformation_args[th_id]);
+		thread_id[th] = pthread_create(&p_thread[th], NULL,
+				t_RunFormation, (void*)&runformation_args[th]);
 	}
 
 	uint64_t is_ok = 0;
-	for(int th_id = 0; th_id < odb.nr_runform_th; th_id++){
-		pthread_join(p_thread[th_id], (void**)&is_ok);
+	for(int th = 0; th < odb.nr_runform_th; th++){
+		pthread_join(p_thread[th], (void**)&is_ok);
 	}
 
 	/* store range table into file */
 	range_to_file(&range_table[0], odb);
-	close(fd_input);
 	free(range_table);
 
-
+	for(int th = 0 ; th < odb.nr_runform_th; th++){
+		close(fd_input[th]);
+	}
 }
 
 

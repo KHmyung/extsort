@@ -170,9 +170,11 @@ main(int argc, char *argv[]){
 	}
 
 	if(opt->runform && do_clear > 0){		/* deleting run files */
-		for(int i = 0; i < opt->nr_run; i++){
-			int res = remove( (opt->runpath + std::to_string(i)).c_str());
-			assert(res == 0);
+		for(int range = 0 ; range < opt->nr_merge_th; range++){
+			for(int file = 0; file < opt->nr_run; file++){
+				int res = remove( (opt->d_runpath[range] + std::to_string(file)).c_str());
+				assert(res == 0);
+			}
 		}
 	}
 	if(opt->runform || opt->merge)

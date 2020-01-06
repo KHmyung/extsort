@@ -10,42 +10,43 @@ int do_verify;
 int do_clear;
 
 void
-opt_init(struct opt_t *odb)				/* option database */
+opt_init(struct opt_t *odb)						/* option database */
 {
-
 	odb->datagen = DO_DATAGEN;
 	odb->runform = DO_RUNFORM;
 	odb->merge = DO_MERGE;
 	do_verify = DO_VERIFY;
 	do_profile = DO_PROFILE;
 	do_clear = 1;
-	odb->inpath = INPUT_PATH;			/* path to input file */
-	odb->outpath = OUTPUT_PATH;			/* path to output files */
-	odb->outpath += "range_";
-	odb->runpath = RUN_PATH;			/* path to temporary run files */
-	odb->runpath += "run_";
-	odb->metapath = META_PATH;			/* path to temporary range metadata */
-	odb->nr_datagen_th = NRTH_DATAGEN;		/* number of data generation threads */
-	odb->nr_runform_th = NRTH_RUNFORM;		/* number of runformation threads */
-	odb->nr_merge_th = NRTH_MRG;			/* number of merge threads */
-	odb->total_size = TOTAL_DATA_SIZE;		/* total file size */
-	odb->mem_size = MEM_SIZE;			/* total memory size */
-	odb->nr_run = 					/* number of run files */
-		(odb->total_size/odb->mem_size)
-				*odb->nr_runform_th;
+	odb->nr_datagen_th = NRTH_DATAGEN;			/* number of data generation threads */
+	odb->nr_runform_th = NRTH_RUNFORM;			/* number of runformation threads */
+	odb->nr_merge_th = NRTH_MRG;				/* number of merge threads */
+
+	for(int i = 0; i < odb->nr_merge_th; i++){
+		odb->d_inpath.push_back(INPUT_PATH);		/* path to temporary run files */
+		odb->d_runpath.push_back(RUN_PATH);		/* path to temporary run files */
+		odb->d_outpath.push_back(OUTPUT_PATH);	/* path to output files */
+		odb->d_inpath[i] += "in.txt";
+		odb->d_runpath[i] += "run_";
+		odb->d_outpath[i] += "range_";
+	}
+	odb->metapath = META_PATH;					/* path to temporary range metadata */
+	odb->total_size = TOTAL_DATA_SIZE;			/* total file size */
+	odb->mem_size = MEM_SIZE;					/* total memory size */
+	odb->nr_run =								/* number of run files */
+		(odb->total_size/odb->mem_size)*odb->nr_runform_th;
 
 	assert(odb->nr_run > 0);
 
-	odb->kv_size = KV_SIZE;				/* key+value size */
-	odb->key_size = /*8B*/ 8;			/* key size */
-	odb->rf_blksize = 				/* available blkbuf per runformation thread */
+	odb->kv_size = KV_SIZE;						/* key+value size */
+	odb->key_size = /*8B*/ 8;					/* key size */
+	odb->rf_blksize =							/* available blkbuf per runformation thread */
 		(odb->mem_size/odb->nr_runform_th);
 
 	assert(odb->rf_blksize >= 4096);
 
-	odb->mrg_blksize =				/* available blkbuf per run file */
-		(odb->mem_size/odb->nr_merge_th
-		 /odb->nr_run);
+	odb->mrg_blksize =							/* available blkbuf per run file */
+		(odb->mem_size/odb->nr_merge_th/odb->nr_run);
 
 	assert(odb->mrg_blksize >= 4096);
 
@@ -162,6 +163,23 @@ opt_parse(int argc, char *argv[], struct opt_t *odb){
 	if(th){
 		odb->nr_runform_th = atoi(th);
 		odb->nr_merge_th = atoi(th);
+		odb->d_inpath.clear();
+		odb->d_runpath.clear();
+		odb->d_outpath.clear();
+
+		char c = 'a';
+		for(int i = 0; i < odb->nr_merge_th; i++){
+			odb->d_inpath.push_back(INPUT_PATH);
+			odb->d_runpath.push_back(RUN_PATH);		/* path to temporary run files */
+			odb->d_outpath.push_back(OUTPUT_PATH);	/* path to output files */
+			odb->d_inpath[i].append(1, c);
+			odb->d_runpath[i].append(1, c);
+			odb->d_outpath[i].append(1, c);
+			odb->d_inpath[i] += "/in.txt";
+			odb->d_runpath[i] += "/run_";
+			odb->d_outpath[i] += "/range_";
+			c++;
+		}
 	}
 	if(datasize || memsize || th){
 		odb->nr_run = (odb->total_size/odb->mem_size) * odb->nr_runform_th;
