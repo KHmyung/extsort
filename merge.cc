@@ -95,7 +95,7 @@ init_range_info(struct RangeInfo *range_i, struct MergeArgs args){
 	range_i->g_mrgbuf = alloc_buf(args.wrbuf_size);
 }
 
-	static void
+static void
 init_run_info(struct RunInfo *ri, Data* g_blkbuf, uint64_t nr_entries,
 		int fd, int run, int id,
 		int nr_range, uint64_t blk_size, uint64_t start_ofs)

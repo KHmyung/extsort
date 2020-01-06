@@ -58,6 +58,10 @@ struct id_Data{
 
 extern int do_verify;
 extern int do_profile;
+extern int64_t ReadData(int, char*, int64_t);
+extern int64_t WriteData(int, char*, int64_t);
+extern int64_t pReadData(int, char*, int64_t, uint64_t);
+extern int64_t pWriteData(int, char*, int64_t, uint64_t);
 
 #endif /* COMMON_H */
 
