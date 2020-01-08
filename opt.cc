@@ -181,6 +181,10 @@ opt_parse(int argc, char *argv[], struct opt_t *odb){
 			c++;
 		}
 	}
+	else{
+		std::cout << "Thread option is mandatory ( -w <#number> )" << std::endl;
+		exit(1);
+	}
 	if(datasize || memsize || th){
 		odb->nr_run = (odb->total_size/odb->mem_size) * odb->nr_runform_th;
 		assert(odb->nr_run > 0);

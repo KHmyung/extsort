@@ -58,6 +58,7 @@ struct id_Data{
 
 extern int do_verify;
 extern int do_profile;
+extern int do_clear;
 extern int64_t ReadData(int, char*, int64_t);
 extern int64_t WriteData(int, char*, int64_t);
 extern int64_t pReadData(int, char*, int64_t, uint64_t);

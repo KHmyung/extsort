@@ -69,45 +69,47 @@ ShowStats(void* data){
 	if(odb.merge)
 		print_time("    Merge(s)        ", mrg_time.total_t);
 
-	std::cout << "\n <STATS>" << std::endl;
-	if(odb.runform && odb.merge){
-		std::cout << "  [-----TOTAL(s)----] " << std::endl;
-		print_time("  AVG  Total        ", run_stat.avg_total + mrg_stat.avg_total);
-		print_time("       -Sort        ", run_stat.avg_sort + mrg_stat.avg_sort);
-		print_time("       -Read        ", run_stat.avg_read + mrg_stat.avg_read);
-		print_time("       -Write       ", run_stat.avg_write + mrg_stat.avg_write);
-	}
-	if(odb.runform){
-		std::cout << "  [-RUNFORMATION(s)-] " << std::endl;
-		print_time(" FIRST Arrival      ", run_stat.first_time);
-		print_time("  LAST Arrival      ", run_stat.last_time);
-		print_time("  AVG  Total        ", run_stat.avg_total);
-		print_time("       -Sort        ", run_stat.avg_sort);
-		print_time("       -Read        ", run_stat.avg_read);
-		print_time("       -Write       ", run_stat.avg_write);
-	}
-	if(odb.merge){
-		std::cout << "  [-----MERGE(s)----] " << std::endl;
-		print_time(" FIRST Arrival      ", mrg_stat.first_time);
-		print_time("  LAST Arrival      ", mrg_stat.last_time);
-		print_time("  AVG  Total        ", mrg_stat.avg_total);
-		print_time("       -Sort        ", mrg_stat.avg_sort);
-		print_time("       -Read        ", mrg_stat.avg_read);
-		print_time("       -Write       ", mrg_stat.avg_write);
-	}
-
-	std::cout << "\n <THREADS STATS>\n ";
-	std::cout << "|  (id)  | (Total) (Sort) (Read) (Write)>" << std::endl;
-	if(odb.runform){
-		std::cout << " [-RUNFORMATION(s)-] " << std::endl;
-		for (int th = 0; th < odb.nr_runform_th; th++){
-			print_thread_time(th, run_time);
+	if(do_profile){
+		std::cout << "\n <STATS>" << std::endl;
+		if(odb.runform && odb.merge){
+			std::cout << "  [-----TOTAL(s)----] " << std::endl;
+			print_time("  AVG  Total        ", run_stat.avg_total + mrg_stat.avg_total);
+			print_time("       -Sort        ", run_stat.avg_sort + mrg_stat.avg_sort);
+			print_time("       -Read        ", run_stat.avg_read + mrg_stat.avg_read);
+			print_time("       -Write       ", run_stat.avg_write + mrg_stat.avg_write);
 		}
-	}
-	if(odb.merge){
-		std::cout << " [---- MERGE(s)----] " << std::endl;
-		for (int th = 0; th < odb.nr_merge_th; th++){
-			print_thread_time(th, mrg_time);
+		if(odb.runform){
+			std::cout << "  [-RUNFORMATION(s)-] " << std::endl;
+			print_time(" FIRST Arrival      ", run_stat.first_time);
+			print_time("  LAST Arrival      ", run_stat.last_time);
+			print_time("  AVG  Total        ", run_stat.avg_total);
+			print_time("       -Sort        ", run_stat.avg_sort);
+			print_time("       -Read        ", run_stat.avg_read);
+			print_time("       -Write       ", run_stat.avg_write);
+		}
+		if(odb.merge){
+			std::cout << "  [-----MERGE(s)----] " << std::endl;
+			print_time(" FIRST Arrival      ", mrg_stat.first_time);
+			print_time("  LAST Arrival      ", mrg_stat.last_time);
+			print_time("  AVG  Total        ", mrg_stat.avg_total);
+			print_time("       -Sort        ", mrg_stat.avg_sort);
+			print_time("       -Read        ", mrg_stat.avg_read);
+			print_time("       -Write       ", mrg_stat.avg_write);
+		}
+
+		std::cout << "\n <THREADS STATS>\n ";
+		std::cout << "|  (id)  | (Total) (Sort) (Read) (Write)>" << std::endl;
+		if(odb.runform){
+			std::cout << " [-RUNFORMATION(s)-] " << std::endl;
+			for (int th = 0; th < odb.nr_runform_th; th++){
+				print_thread_time(th, run_time);
+			}
+		}
+		if(odb.merge){
+			std::cout << " [---- MERGE(s)----] " << std::endl;
+			for (int th = 0; th < odb.nr_merge_th; th++){
+				print_thread_time(th, mrg_time);
+			}
 		}
 	}
 }
@@ -143,13 +145,13 @@ main(int argc, char *argv[]){
 	std::cout << "\n <START TEST>"	<< std::endl;
 
 	if(opt->datagen){		/* data generation */
-		std::cout << " DATA GENERATION" << std::endl;
+		std::cout << "\n DATA GENERATION" << std::endl;
 		DataGeneration(opt);
 	}
 
 	if(opt->runform){		/* runformation */
 		clock_gettime(CLOCK_MONOTONIC, &local_time[0]);
-		std::cout << " RUN FORMATION" << std::endl;
+		std::cout << "\n RUN FORMATION" << std::endl;
 		RunFormation(opt);
 		clock_gettime(CLOCK_MONOTONIC, &local_time[1]);
 		calclock(local_time, &run_time.total_t, &run_time.total_c);
@@ -162,11 +164,11 @@ main(int argc, char *argv[]){
 
 	if(opt->merge){			/* merge */
 		clock_gettime(CLOCK_MONOTONIC, &local_time[0]);
-		std::cout << " MERGING" << std::endl;
+		std::cout << "\n MERGING" << std::endl;
 		Merge(opt);
 		clock_gettime(CLOCK_MONOTONIC, &local_time[1]);
 		calclock(local_time, &mrg_time.total_t, &mrg_time.total_c);
-		std::cout << " <TEST FINISHED>" << std::endl;
+		std::cout << "\n <TEST FINISHED>" << std::endl;
 	}
 
 	if(opt->runform && do_clear > 0){		/* deleting run files */

@@ -1,5 +1,8 @@
 #include "datagen.h"
 
+#define MIN(min, key) (min>key?key:min)
+#define MAX(max, key) (max<key?key:max)
+
 static struct
 Data* alloc_buf(uint64_t size){
 	void *mem;
@@ -11,7 +14,8 @@ Data* alloc_buf(uint64_t size){
 }
 
 static void
-randstring(size_t length, char *buf, unsigned int seed) {
+randstring(size_t length, char *buf, unsigned int seed)
+{
 	static char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789,.-#'?!";
 	if (buf) {
 		int l = (int) (sizeof(charset) -1);
@@ -34,6 +38,8 @@ t_DataGeneration(void* data){
 	uint64_t data_size = args.data_size;
 	uint64_t mem_size = args.mem_size;
 	uint64_t writeofs = args.writeofs;
+	uint64_t min_key = MAXKEY;
+	uint64_t max_key = 0;
 	unsigned int seed = (unsigned int)th_id;
 
 	Data *genbuf = alloc_buf(mem_size);
@@ -47,6 +53,11 @@ t_DataGeneration(void* data){
 		randstring(sizeof(genbuf[offset].value), genbuf[offset].value, (unsigned int)seed);
 		genbuf[offset].key = rand_r((unsigned int*)&seed) % MAXKEY;
 
+		if(do_verify){
+			min_key = MIN(min_key, genbuf[offset].key);
+			max_key = MAX(max_key, genbuf[offset].key);
+		}
+
 		offset++;
 		nbyte_buffer += KV_SIZE;
 
@@ -59,6 +70,11 @@ t_DataGeneration(void* data){
 			nbyte_buffer = 0;
 			offset = 0;
 		}
+	}
+
+	if(do_verify){
+		std::cout << "[" << th_id << "] MIN_KEY: " << min_key  << std::endl;
+		std::cout << "[" << th_id << "] MAX_KEY: " << max_key  << std::endl;
 	}
 
 	free(genbuf);
@@ -105,7 +121,6 @@ DataGeneration(void* data){
 
 
 	int is_ok = 0;
-	int res = 0;
 	for(int th = 0; th < odb.nr_datagen_th; th++){
 		pthread_join(p_thread[th], (void **)&is_ok);
 		assert(is_ok == 1);

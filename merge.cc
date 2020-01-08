@@ -30,33 +30,36 @@ alloc_buf(uint64_t size){
 }
 
 static int
-refill_buffer(struct RunInfo *ri, int64_t size, int id, int first){
+refill_buffer(struct RunInfo *ri, int range){
+	int ret = 0;
+	int64_t size = ri->blk_entry * KV_SIZE;
 	struct timespec local_time[2];
 
 	if(do_profile){
 		clock_gettime(CLOCK_MONOTONIC, &local_time[0]);
 	}
-	int64_t read_byte = pReadData(ri->fd, (char*)&ri->blkbuf[0], size, ri->read_ofs);
-	if(read_byte != 0)
-		assert(read_byte == size);
-	ri->read_ofs += read_byte;
+
+	int64_t read_byte = ReadData(ri->fd, (char*)&ri->blkbuf[0], size);
+	assert(read_byte >= 0);
+	if(read_byte == 0){
+		ri->done = 1;
+		ret = 1;
+	}
+	ri->blk_entry = read_byte/KV_SIZE;
 	ri->run_ofs++;
+	ri->blk_ofs = 0;
 
-	if(!first)
-		ri->blk_ofs = 0;
-
-	if(do_verify){
-		for(int i = 0; i < (size/KV_SIZE) - 1; i++){
+	if(do_verify && ri->blk_entry > 1){
+		for(int i = 0; i < ri->blk_entry - 1; i++){
 			assert(ri->blkbuf[i].key <= ri->blkbuf[i+1].key);
 		}
 	}
 
 	if(do_profile){
 		clock_gettime(CLOCK_MONOTONIC, &local_time[1]);
-		calclock(local_time, &mrg_time.read_t[id], &mrg_time.read_c[id]);
+		calclock(local_time, &mrg_time.read_t[range], &mrg_time.read_c[range]);
 	}
-	if(read_byte == 0)
-		return 0;
+	return ret;
 }
 
 static void
@@ -77,11 +80,10 @@ flush_buffer(int fd, char* buf, int64_t size, int id)
 }
 
 static void
-file_to_range(uint64_t *range_table, uint64_t *start_ofs, struct opt_t odb){
+file_to_range(uint64_t *range_table, struct opt_t odb){
 	FILE* meta = fopen(odb.metapath.c_str(), "r");
 
 	fread(&range_table[0], sizeof(uint64_t), odb.nr_merge_th * odb.nr_run, meta);
-	fread(&start_ofs[0], sizeof(uint64_t), odb.nr_merge_th * odb.nr_run, meta);
 
 	fclose(meta);
 }
@@ -96,51 +98,29 @@ init_range_info(struct RangeInfo *range_i, struct MergeArgs args){
 }
 
 static void
-init_run_info(struct RunInfo *ri, Data* g_blkbuf, uint64_t nr_entries,
-		int fd, int run, int id,
-		int nr_range, uint64_t blk_size, uint64_t start_ofs)
+init_run_info(struct RunInfo *ri, Data* g_blkbuf, int fd, int run,
+							uint64_t nr_entries, uint64_t blk_size)
 {
 	ri->fd = fd;
-
-	/* start offset of each run */
-	start_ofs *= KV_SIZE;	// entry to byte
-	ri->run_ofs = start_ofs / blk_size;	// byte to block
-	ri->read_ofs = ri->run_ofs * blk_size;	// block to byte (without remainder)
-
-	/* start offset of the first block */
-	ri->blk_ofs = (start_ofs % blk_size)/KV_SIZE;
-
-	/* entry size (different with block size only for the last one) */
-	ri->blk_entry = blk_size / KV_SIZE;
-
-	/* last block */
-	ri->last_blk = start_ofs + (nr_entries * KV_SIZE);
-	ri->remainder = (ri->last_blk % blk_size) / KV_SIZE;
-	ri->last_blk /= blk_size;
-	if(ri->remainder == 0){
-		ri->last_blk--;
-		ri->remainder = blk_size / KV_SIZE;
-	}
+	ri->done = 0;
+	ri->run_ofs = 0;
+	ri->blk_ofs = 0;
+	ri->blk_entry = blk_size/KV_SIZE;
+	ri->remainder = nr_entries % ri->blk_entry;
+	ri->last_blk = nr_entries / ri->blk_entry;
 
 	/* buffer allocation for this run */
 	ri->blkbuf = &g_blkbuf[run * (blk_size/KV_SIZE)];
-
 }
 
 static struct Data
-init_tournament(struct RunInfo *ri, uint64_t blk_size, int id){
+init_tournament(struct RunInfo *ri, int range){
 	struct Data first_data;
 
-	refill_buffer(ri, blk_size, id, 1);
-
+	refill_buffer(ri, range);
 	first_data = ri->blkbuf[ri->blk_ofs++];
 
 	return first_data;
-}
-
-static bool
-check_last(struct RunInfo *ri){
-	return (ri->run_ofs == ri->last_blk);
 }
 
 static void
@@ -151,11 +131,11 @@ print_key(int id, int flag, uint64_t key){
 		std::cout << "max: " << key << "(range:" << id << ")" << std::endl;
 }
 
-	static void
-verify_state(struct RangeInfo *range_i, struct RunInfo *run_i, struct id_Data slot)
+static void
+verify_state(struct RunInfo *ri, int range, uint64_t key)
 {
-	assert(run_i[slot.run_id].blk_ofs <= run_i[slot.run_id].blk_entry);
-	assert(!(slot.data.key == 0 && range_i->id != 0));
+	assert(ri->blk_ofs <= ri->blk_entry);
+	assert(key != 0 || range == 0);
 }
 
 static uint64_t
@@ -183,14 +163,14 @@ static void
 	int nr_range = args.nr_range;
 	uint64_t wrbuf_size = args.wrbuf_size;
 	uint64_t nr_entries = args.nr_entries;
-	uint64_t *start_ofs = args.start_ofs;
 	uint64_t *range_table = args.range_table;
 	uint64_t last_key;
+	std::priority_queue<id_Data, std::vector<id_Data>, std::greater<id_Data>> pq;
+
 	struct timespec thread_time[2];
 	if(do_profile){
 		clock_gettime(CLOCK_MONOTONIC, &thread_time[0]);
 	}
-	std::priority_queue<id_Data, std::vector<id_Data>, std::greater<id_Data>> pq;
 
 	struct RangeInfo *range_i;
 	range_i = (struct RangeInfo *)malloc(sizeof(struct RangeInfo));
@@ -202,12 +182,11 @@ static void
 
 	for(int run = 0; run < nr_run; run++){
 		/* initialize run data structure */
-		init_run_info(&run_i[run], &range_i->g_blkbuf[0], range_table[run],
-				args.fd_run[run], run, range_i->id,
-				nr_range, blk_size, start_ofs[run]);
+		init_run_info(&run_i[run], &range_i->g_blkbuf[0], args.fd_run[run],
+												run, nr_entries, blk_size);
 
 		/* initialize tournament */
-		slot.data = init_tournament(&run_i[run], blk_size, range_i->id);
+		slot.data = init_tournament(&run_i[run], range_i->id);
 
 		/* push the first item */
 		slot.run_id = run;
@@ -230,10 +209,9 @@ static void
 		range_i->g_mrgbuf[range_i->mrg_ofs++] = slot.data;
 		pq.pop();
 
-
 		if(do_verify){
 			last_key = slot.data.key;
-			verify_state(range_i, run_i, slot);
+			verify_state(&run_i[slot.run_id], range_i->id, slot.data.key);
 		}
 
 		/* if all entries are merged */
@@ -243,29 +221,19 @@ static void
 		/* flush full merge buffer */
 		if(range_i->mrg_ofs == wrbuf_size/KV_SIZE){
 			flush_buffer(fd_output, (char*)&range_i->g_mrgbuf[0],
-					wrbuf_size, range_i->id);
+							wrbuf_size, range_i->id);
 			range_i->mrg_ofs = 0;
 		}
 
-		/* refill empty block buffer */
+		/* check block buffer is exhausted */
 		if(run_i[slot.run_id].blk_ofs == run_i[slot.run_id].blk_entry){
 
-			/* continue if the run is exhausted */
-			if(run_i[slot.run_id].run_ofs == run_i[slot.run_id].last_blk + 1){
+			/* continue if the run is completed already */
+			if(run_i[slot.run_id].done)
 				continue;
-			}
-
 			/* refill block */
-			else {
-				/* check whether this is the last block */
-				if(check_last(&run_i[slot.run_id])){
-					run_i[slot.run_id].blk_entry
-						= run_i[slot.run_id].remainder;
-					memset(&run_i[slot.run_id].blkbuf[0], 0, blk_size);
-				}
-				int ret = refill_buffer(&run_i[slot.run_id], blk_size, range_i->id, 0);
-				if(ret == 0) continue;
-			}
+			int ret = refill_buffer(&run_i[slot.run_id], range_i->id);
+			if(ret) continue;
 		}
 		/* put one into tournament */
 		slot.data = run_i[slot.run_id].blkbuf[run_i[slot.run_id].blk_ofs++];
@@ -295,25 +263,29 @@ static void
 	free(range_i->g_mrgbuf);
 	free(range_i);
 	free(run_i);
+
+	return (void*)1;
 }
 
 void
 Merge(void* data){
 	struct opt_t odb = *(struct opt_t *)data;
-	int fd_run[odb.nr_run];
+	int fd_run[odb.nr_merge_th][odb.nr_run];
 	struct MergeArgs merge_args[odb.nr_merge_th];
 	pthread_t mrg_thread[odb.nr_merge_th];
-	for(int i = 0; i < odb.nr_run; i++){
-		fd_run[i] = open( (odb.runpath + std::to_string(i)).c_str(), O_DIRECT | O_RDONLY);
+	for(int range = 0; range < odb.nr_merge_th; range++){
+		for(int file = 0; file < odb.nr_run; file++){
+			fd_run[range][file] =
+				open( (odb.d_runpath[range] + std::to_string(file)).c_str(),
+						O_DIRECT | O_RDONLY);
+		}
 	}
 
 	time_init(odb.nr_merge_th, &mrg_time);
 	uint64_t *range_table;
 	range_table = (uint64_t *)calloc(odb.nr_merge_th * odb.nr_run, sizeof(uint64_t));
-	uint64_t *start_ofs;
-	start_ofs = (uint64_t *)calloc(odb.nr_merge_th * odb.nr_run, sizeof(uint64_t));
 
-	file_to_range(&range_table[0], &start_ofs[0], odb);
+	file_to_range(&range_table[0], odb);
 
 	uint64_t nr_entries;
 	if(!odb.runform){
@@ -322,42 +294,39 @@ Merge(void* data){
 	}
 
 	int range_ofs;
-	for(int th_id = 0; th_id < odb.nr_merge_th; th_id++){
+	for(int th = 0; th < odb.nr_merge_th; th++){
 		nr_entries = 0;
-		range_ofs = th_id * odb.nr_run;
+		range_ofs = th * odb.nr_run;
 
-		merge_args[th_id].th_id = th_id;
-		merge_args[th_id].nr_run = odb.nr_run;
-		merge_args[th_id].nr_range = odb.nr_merge_th;
-		merge_args[th_id].blk_size = odb.mrg_blksize;
-		merge_args[th_id].wrbuf_size = odb.mrg_wrbuf;
-		merge_args[th_id].fd_run = fd_run;
-		merge_args[th_id].start_ofs = &start_ofs[range_ofs];
-		merge_args[th_id].range_table = &range_table[range_ofs];
+		merge_args[th].th_id = th;
+		merge_args[th].nr_run = odb.nr_run;
+		merge_args[th].nr_range = odb.nr_merge_th;
+		merge_args[th].blk_size = odb.mrg_blksize;
+		merge_args[th].wrbuf_size = odb.mrg_wrbuf;
+		merge_args[th].fd_run = &fd_run[th][0];
+		merge_args[th].range_table = &range_table[range_ofs];
 
 		for(int i = 0; i < odb.nr_run; i++){
 			nr_entries += range_table[range_ofs + i];
 		}
-		merge_args[th_id].nr_entries = nr_entries;
-		merge_args[th_id].outpath = odb.outpath + std::to_string(th_id);
+		merge_args[th].nr_entries = nr_entries;
+		merge_args[th].outpath = odb.d_outpath[th] + std::to_string(th);
 
-		pthread_create(&mrg_thread[th_id], NULL, t_Merge, &merge_args[th_id]);
+		pthread_create(&mrg_thread[th], NULL, t_Merge, &merge_args[th]);
 	}
 
 	int is_ok = 0;
-	int res = 0;
-	for(int th_id = 0; th_id < odb.nr_merge_th; th_id++){
-		pthread_join(mrg_thread[th_id], (void **)&is_ok);
-		if(is_ok != 1){
-			res = -1;
-		}
-	}
-
-	for(int i = 0; i < odb.nr_run; i++){
-		close(fd_run[i]);
+	for(int th = 0; th < odb.nr_merge_th; th++){
+		pthread_join(mrg_thread[th], (void **)&is_ok);
+		assert(is_ok == 1);
 	}
 
 	free(range_table);
+	for(int range = 0; range < odb.nr_merge_th; range++){
+		for(int file = 0; file < odb.nr_run; file++){
+			close(fd_run[range][file]);
+		}
+	}
 
 }
 
