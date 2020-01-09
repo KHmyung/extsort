@@ -20,7 +20,6 @@ struct MergeArgs{
 	uint64_t blk_size;
 	uint64_t wrbuf_size;
 	uint64_t nr_entries;
-	uint64_t *range_table;
 	std::string outpath;
 };
 

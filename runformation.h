@@ -19,8 +19,10 @@ struct RunformationArgs{
 	int nr_range;
 	uint64_t data_size;
 	uint64_t blk_size;
-	uint64_t *range_table;
+	uint64_t mrg_blk_size;
 	std::string *runpath;
+	uint64_t *partition;
+	struct RunDesc *run_d;
 };
 
 void RunFormation(void*);

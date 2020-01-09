@@ -2,7 +2,8 @@
 
 #define CURR 0
 #define NEXT 1
-#define ALIGN (4096/KV_SIZE)
+#define DIO_ALIGN (4096)
+#define ENTRY_ALIGN (4096/KV_SIZE)
 
 struct TimeFormat run_time;
 
@@ -42,13 +43,14 @@ compare(struct Data a, struct Data b){
 static void
 reverse_table(uint64_t *table, int nr_run, int nr_range){
 	uint64_t *new_table;
-	new_table = (uint64_t *)malloc(nr_run * nr_range * sizeof(uint64_t));
+	new_table = (uint64_t *)malloc(2 * nr_run * nr_range * sizeof(uint64_t));
 	assert(new_table != NULL);
 
 	for(int run = 0; run < nr_run; run++){
 		/* data moved from row to column */
 		for(int range = 0; range < nr_range; range++){
 			new_table[range * nr_run + run] = table[run * nr_range + range];
+			new_table[range * nr_run + run + 1] = table[run * nr_range + range + 1];
 		}
 	}
 
@@ -75,20 +77,12 @@ print_range(uint64_t *range_table, int nr_range, int nr_run){
 }
 
 static void
-range_to_file(uint64_t *range_table, struct opt_t odb){
-	int entries;
+store_meta(struct RunDesc *rd, int nr_array, std::string path){
 
-	/* switch rows to columns in range table for cache locality in merge phase */
-	reverse_table(&range_table[0], odb.nr_run, odb.nr_merge_th);
-
-	/* show range_run format */
-	entries = print_range(&range_table[0], odb.nr_merge_th, odb.nr_run);
-	assert(entries == odb.total_size/KV_SIZE);
-
-	FILE* meta = fopen(odb.metapath.c_str(), "w+");
+	FILE* meta = fopen(path.c_str(), "w+");
 
 	/* put range table into file */
-	fwrite(&range_table[0], sizeof(uint64_t), odb.nr_merge_th * odb.nr_run, meta);
+	fwrite(&rd[0], sizeof(struct RunDesc), nr_array, meta);
 
 	fclose(meta);
 }
@@ -120,6 +114,7 @@ flush_buffer(int fd, char *buf, int64_t size, int id){
 		clock_gettime(CLOCK_MONOTONIC, &local_time[0]);
 	}
 
+
 	write_byte += WriteData(fd, &buf[0], size);
 	assert(write_byte == size);
 
@@ -130,80 +125,154 @@ flush_buffer(int fd, char *buf, int64_t size, int id){
 	return write_byte;
 }
 
-static int
-range_record(uint64_t *table, uint64_t *ofs, uint64_t *size, int id){
-	int ofs_align = 0;
+static void
+random_sampling(std::string *filename, uint64_t filesize, int nr_file,
+				struct Data *buf, uint64_t sample_count)
+{
+	srand((unsigned int)time(0));
 
-	while(table[CURR] % ALIGN){
-		table[CURR]++;
-		ofs_align++;
+	uint64_t done = 0;
+	int fd[nr_file];
+	for(int file = 0; file < nr_file; file++){
+		fd[file] = open( filename[file].c_str(), O_DIRECT | O_RDONLY);
+		assert(fd[file] > 0);
 	}
-	size[CURR] = table[CURR];
-	ofs[NEXT] = ofs[CURR] + table[CURR];
 
-	return ofs_align;
+	while(done < sample_count){
+		int file = rand() % nr_file;
+		int rand_ptr = rand() % (filesize/nr_file/DIO_ALIGN);
+		pread(fd[file], &buf[0] + done*ENTRY_ALIGN, DIO_ALIGN, rand_ptr*DIO_ALIGN);
+
+		done++;
+	}
+
+	for(int file = 0; file < nr_file; file++)
+		close(fd[file]);
 }
 
 static void
-range_estimation(struct Data* buf, int nr_range, uint64_t size,
-				int id, uint64_t *range_table, uint64_t *range_ofs,
-				uint64_t *range_size)
+range_estimation(struct Data* buf, uint64_t *p, int nr_range, uint64_t size)
 {
-	int range;
-	int nr_filter = nr_range * nr_range;
-	int filter = MAXKEY/nr_filter;
-
-	uint64_t *buf_filter;
-	buf_filter = (uint64_t*)calloc(nr_filter, sizeof(uint64_t));
-	assert(buf_filter != NULL);
-
 	uint64_t nr_entries = size/KV_SIZE;
-	uint64_t boundary = (nr_range > 16) ? (nr_entries/nr_range)
-										: (nr_entries/(nr_range + 1));
+	/* set boundary conservatively */
+	uint64_t boundary_ofs = nr_entries/nr_range;
 
-	for(int i = 0; i < nr_entries; i++){
-		buf_filter[buf[i].key/filter]++;
+	std::sort(&buf[0], buf + nr_entries, compare);
+
+	p[0] = 0;
+
+	for(int range = 1; range < nr_range; range++){
+		p[range] = buf[boundary_ofs * range].key;
 	}
 
-	range_ofs[0] = 0;
-	range = 0;
-
-	for(int j = 0; j < nr_filter; j++){
-		range_table[range] += buf_filter[j];
-		if((range_table[range] > boundary) && (range < nr_range - 1)){
-			int align = range_record(&range_table[range], &range_ofs[range],
-													&range_size[range], id);
-			buf_filter[j+1] -= align;
-			range++;
+	if(do_verify){
+		std::cout << "\nRange Estimation (key)" << std::endl;
+		for(int range = 0; range < nr_range; range++){
+			std::cout << "[Range" << range << "] : " << p[range] << std::endl;
 		}
 	}
-	range_size[range] = range_table[range];
-	free(buf_filter);
 }
 
-static void
-check_min(uint64_t *min, struct Data *runbuf, uint64_t *range_ofs, int nr_range)
+static void range_partitioning(struct Data *buf, uint64_t *p, uint64_t size,
+								int nr_range, struct RunDesc *rd, int id)
 {
-	for(int range = 0; range < nr_range; range++){
-		uint64_t this_min = runbuf[range_ofs[range]].key;
-		if(this_min < min[range])
-			min[range] = this_min;
+	int range = 0;
+	uint64_t cnt = 0;
+	uint64_t sum = 0;
+	uint64_t len = size/KV_SIZE;
+
+	for(uint64_t ofs = 0; ofs < len; ofs++){
+
+		if(buf[ofs].key > p[range + 1]){
+			rd[range].valid_entries = cnt;
+			sum += cnt;
+			cnt = 0;
+
+			range++;
+		}
+
+		if(range == nr_range - 1){
+			rd[range].valid_entries = len - ofs;
+			sum += rd[range].valid_entries;
+			break;
+		}
+
+		cnt++;
 	}
+	assert(sum == len);
+
+	/*
+	if(do_verify){
+		std::cout << "\nRange Partitioning" << std::endl;
+		std::cout << "Valid entries" << std::endl;
+		for(int range = 0; range < nr_range; range++){
+			std::cout << "[" << id << "-Run" << rd[range].run_dd <<
+			"-Range" <<	range << "] : " << rd[range].valid_entries << std::endl;
+		}
+	}
+	*/
+
+
 }
 
 static void
-check_max(uint64_t *max, struct Data *runbuf, uint64_t *range_ofs,
-						uint64_t *range_size, int nr_range)
+range_calibration(struct RunDesc *rd, uint64_t mrg_blk_size, int nr_range, int id)
 {
+	uint64_t cum_ofs, start, end;
+
 	for(int range = 0; range < nr_range; range++){
-		uint64_t this_max = runbuf[range_ofs[range] + range_size[range] -1].key;
-		if(this_max > max[range])
-			max[range] = this_max;
+		cum_ofs = 0;
+		for(int j = 0; j < range; j++){
+			cum_ofs += rd[j].valid_entries;
+		}
+
+		start = cum_ofs * KV_SIZE;
+		end = (cum_ofs + rd[range].valid_entries) * KV_SIZE;
+
+		/* first data offset in the first block */
+		rd[range].start_ofs = (start % mrg_blk_size) / KV_SIZE;
+
+		/* last data offset in the last block */
+		rd[range].end_ofs = (end % mrg_blk_size) / KV_SIZE;
+
+		/* write offset */
+		rd[range].rw_ofs = (start / DIO_ALIGN) * DIO_ALIGN / KV_SIZE;
+
+		/* write size */
+		rd[range].rw_size = (((end / DIO_ALIGN) - (start / DIO_ALIGN)) * DIO_ALIGN);
+		if(end % DIO_ALIGN){
+			rd[range].rw_size += DIO_ALIGN;
+		}
+	}
+	/*
+	if(do_verify){
+			std::cout << "Write Offset" << std::endl;
+			for(int range = 0; range < nr_range; range++){
+				std::cout << "[" << id << "-Run" << rd[range].run_dd <<
+					"-Range" << range << "]: " << rd[range].rw_ofs << std::endl;
+			}
+			std::cout << "Write Size" << std::endl;
+			for(int range = 0; range < nr_range; range++){
+				std::cout << "[" << id << "-Run" << rd[range].run_dd <<
+				"-Range" << range << "]: " << rd[range].rw_size << std::endl;
+			}
+	}
+	*/
+
+}
+
+static void
+record_run_dd(struct RunDesc *rd, int nr_range, int run){
+
+	for(int range = 0; range < nr_range; range++){
+
+		rd[range].run_id = run;
 	}
 }
 
 static void *
-t_RunFormation(void *data){
+t_RunFormation(void *data)
+{
 	struct RunformationArgs args = *(struct RunformationArgs*)data;
 	int fd_input = args.fd_input;
 	int run_ofs = args.run_ofs;
@@ -212,23 +281,18 @@ t_RunFormation(void *data){
 	int th_id = args.th_id;
 	uint64_t data_size = args.data_size;
 	uint64_t blk_size = args.blk_size;
+	uint64_t mrg_blk_size = args.mrg_blk_size;
 	uint64_t offset = 0;
 	std::string *runpath = args.runpath;
+	uint64_t *partition = args.partition;
+	struct RunDesc *run_d = args.run_d;
 
-	uint64_t *range_table = args.range_table;
 	Data *runbuf = alloc_buf(blk_size);
-	uint64_t range_ofs[nr_range];
-	uint64_t range_size[nr_range];
-	uint64_t min_key[nr_range];
-	uint64_t max_key[nr_range] = { 0, };
-
-	if(do_verify){
-		for(int i = 0; i < nr_range; i++)
-			min_key[i] = MAXKEY;
-	}
+	uint64_t write_ofs[nr_range];
+	uint64_t write_size[nr_range] = {0, };
 
 	int done = 0;
-	uint64_t nbyte_sorted = 0;
+	uint64_t sorted_entries = 0;
 
 	struct timespec thread_time[2];
 
@@ -237,34 +301,39 @@ t_RunFormation(void *data){
 	}
 
 	while(done < nr_run){
+
+		record_run_dd(&run_d[done * nr_range], nr_range, run_ofs);
+
 		refill_buffer(fd_input, (char*)runbuf, blk_size, th_id);
 
 		/* Sort (STL) */
-		std::sort(&runbuf[0], &runbuf[blk_size/KV_SIZE], compare);
+		std::sort(&runbuf[0], runbuf + blk_size/KV_SIZE, compare);
 
-		/* gather range statistics from sorted buffer */
-		range_estimation(&runbuf[0], nr_range, blk_size, th_id,
-						&range_table[nr_range * done], &range_ofs[0], &range_size[0]);
+		range_partitioning(&runbuf[0], &partition[0], blk_size, nr_range,
+						   &run_d[done * nr_range], th_id);
 
-		if(do_verify){
-			check_min(&min_key[0], &runbuf[0], &range_ofs[0], nr_range);
-			check_max(&max_key[0], &runbuf[0], &range_ofs[0], &range_size[0], nr_range);
-		}
+		range_calibration(&run_d[done * nr_range], mrg_blk_size, nr_range, th_id);
 
+		/* Shuffle */
 		for(int range = 0; range < nr_range; range++){
+
 			int fd_run = open( (runpath[range] + std::to_string(run_ofs)).c_str(),
 					O_DIRECT | O_RDWR | O_CREAT | O_LARGEFILE | O_TRUNC, 0644);
 			assert(fd_run > 0);
-			int64_t write_byte = flush_buffer(fd_run,
-					(char *)&runbuf[range_ofs[range]], range_size[range]*KV_SIZE, th_id);
-			nbyte_sorted += write_byte;
+
+			int64_t write_byte =
+			  flush_buffer(fd_run, (char*)&runbuf[run_d[done * nr_range + range].rw_ofs],
+							run_d[done * nr_range + range].rw_size, th_id);
+
+			sorted_entries += run_d[done * nr_range + range].valid_entries;
 			close(fd_run);
 		}
+
 		done++;
 		run_ofs++;
 	}
 
-	assert(nbyte_sorted == data_size);
+	assert(sorted_entries == data_size/KV_SIZE);
 
 	if(do_profile){
 		clock_gettime(CLOCK_MONOTONIC, &thread_time[1]);
@@ -273,26 +342,25 @@ t_RunFormation(void *data){
 							 	 run_time.read_t[th_id] -
 								 run_time.write_t[th_id];
 	}
-
-	if(do_verify){
-		for(int range = 0; range < nr_range; range++){
-			std::cout << "[" << th_id << "] MIN_KEY: " << min_key[range] << std::endl;
-			std::cout << "[" << th_id << "] MAX_KEY: " << max_key[range] << std::endl;
-		}
-	}
 	free(runbuf);
 
 	return ((void *)1);
 }
 
+
+
 void
 RunFormation(void* data){
+
+
 	struct opt_t odb = *(struct opt_t *)data;
 
-	/* allocate range table */
-	uint64_t *range_table;
-	range_table = (uint64_t *)calloc(odb.nr_run, sizeof(uint64_t) * odb.nr_merge_th);
-	assert(range_table != NULL);
+	uint64_t *partition;
+	partition = (uint64_t *)malloc(odb.nr_merge_th * sizeof(uint64_t));
+
+	struct RunDesc *run_d;
+	run_d = (struct RunDesc *)malloc(odb.nr_run * odb.nr_merge_th *
+											sizeof(struct RunDesc));
 
 	struct RunformationArgs runformation_args[odb.nr_runform_th];
 	int thread_id[odb.nr_runform_th];
@@ -301,9 +369,21 @@ RunFormation(void* data){
 	/* initialize timespec variable */
 	time_init(odb.nr_runform_th, &run_time);
 
-	int fd_input[odb.nr_runform_th];
 	uint64_t data_size = odb.total_size/odb.nr_runform_th;
 	int run_per_thread = odb.nr_run/odb.nr_runform_th;
+	int nr_file = odb.nr_runform_th;
+
+	uint64_t sample_size = odb.rf_blksize;
+	Data* randbuf = alloc_buf(sample_size);
+
+	/* gather random samples */
+	random_sampling(&odb.d_inpath[0], odb.total_size, nr_file,
+					&randbuf[0], sample_size/DIO_ALIGN);
+
+	/* set partition boundary through random samples */
+	range_estimation(&randbuf[0], &partition[0], odb.nr_merge_th, sample_size);
+
+	int fd_input[nr_file];
 	int run_ofs;
 	for(int th = 0; th < odb.nr_runform_th; th++){
 		fd_input[th] = open( odb.d_inpath[th].c_str(), O_DIRECT | O_RDONLY);
@@ -317,8 +397,10 @@ RunFormation(void* data){
 		runformation_args[th].nr_range = odb.nr_merge_th;
 		runformation_args[th].data_size = data_size;
 		runformation_args[th].blk_size = odb.rf_blksize;
+		runformation_args[th].mrg_blk_size = odb.mrg_blksize;
 		runformation_args[th].runpath = &odb.d_runpath[0];
-		runformation_args[th].range_table = &range_table[run_ofs * odb.nr_merge_th];
+		runformation_args[th].partition = &partition[0];
+		runformation_args[th].run_d = &run_d[run_ofs * odb.nr_merge_th];
 
 		thread_id[th] = pthread_create(&p_thread[th], NULL,
 				t_RunFormation, (void*)&runformation_args[th]);
@@ -330,9 +412,10 @@ RunFormation(void* data){
 		assert(is_ok == 1);
 	}
 
-	/* store range table into file */
-	range_to_file(&range_table[0], odb);
-	free(range_table);
+	/* store runfile information into file */
+	store_meta(&run_d[0], odb.nr_run * odb.nr_merge_th, odb.metapath);
+	free(partition);
+	free(run_d);
 
 	for(int th = 0 ; th < odb.nr_runform_th; th++){
 		close(fd_input[th]);

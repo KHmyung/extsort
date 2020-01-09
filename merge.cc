@@ -80,10 +80,10 @@ flush_buffer(int fd, char* buf, int64_t size, int id)
 }
 
 static void
-file_to_range(uint64_t *range_table, struct opt_t odb){
-	FILE* meta = fopen(odb.metapath.c_str(), "r");
+load_meta(struct RunDesc *rd, int nr_array, std::string path){
+	FILE* meta = fopen(path.c_str(), "r");
 
-	fread(&range_table[0], sizeof(uint64_t), odb.nr_merge_th * odb.nr_run, meta);
+	fread(&rd[0], sizeof(struct RunDesc), nr_array, meta);
 
 	fclose(meta);
 }
@@ -98,16 +98,14 @@ init_range_info(struct RangeInfo *range_i, struct MergeArgs args){
 }
 
 static void
-init_run_info(struct RunInfo *ri, Data* g_blkbuf, int fd, int run,
-							uint64_t nr_entries, uint64_t blk_size)
+init_run_info(struct RunInfo *ri, Data* g_blkbuf,
+				int fd, int run, uint64_t blk_size)
 {
 	ri->fd = fd;
 	ri->done = 0;
 	ri->run_ofs = 0;
 	ri->blk_ofs = 0;
 	ri->blk_entry = blk_size/KV_SIZE;
-	ri->remainder = nr_entries % ri->blk_entry;
-	ri->last_blk = nr_entries / ri->blk_entry;
 
 	/* buffer allocation for this run */
 	ri->blkbuf = &g_blkbuf[run * (blk_size/KV_SIZE)];
@@ -126,9 +124,10 @@ init_tournament(struct RunInfo *ri, int range){
 static void
 print_key(int id, int flag, uint64_t key){
 	if(flag)
-		std::cout << "min: " << key << "(range:" << id << ")" << std::endl;
+		std::cout << "[" << id << "] MIN_KEY: " << key << std::endl;
 	else
-		std::cout << "max: " << key << "(range:" << id << ")" << std::endl;
+		std::cout << "[" << id << "] MAX_KEY: " << key << std::endl;
+
 }
 
 static void
@@ -136,21 +135,6 @@ verify_state(struct RunInfo *ri, int range, uint64_t key)
 {
 	assert(ri->blk_ofs <= ri->blk_entry);
 	assert(key != 0 || range == 0);
-}
-
-static uint64_t
-print_range(uint64_t *range_table, int nr_range, int nr_run){
-	uint64_t range_sum;
-	uint64_t nr_entries = 0;
-	for(int range = 0; range < nr_range; range++){
-		range_sum = 0;
-		for(int run = 0; run < nr_run; run++){
-			range_sum += range_table[range * nr_run + run];
-		}
-		std::cout << "range[" << range << "]: " << range_sum << std::endl;
-		nr_entries += range_sum;
-	}
-	return nr_entries;
 }
 
 static void
@@ -163,7 +147,6 @@ static void
 	int nr_range = args.nr_range;
 	uint64_t wrbuf_size = args.wrbuf_size;
 	uint64_t nr_entries = args.nr_entries;
-	uint64_t *range_table = args.range_table;
 	uint64_t last_key;
 	std::priority_queue<id_Data, std::vector<id_Data>, std::greater<id_Data>> pq;
 
@@ -183,7 +166,7 @@ static void
 	for(int run = 0; run < nr_run; run++){
 		/* initialize run data structure */
 		init_run_info(&run_i[run], &range_i->g_blkbuf[0], args.fd_run[run],
-												run, nr_entries, blk_size);
+															run, blk_size);
 
 		/* initialize tournament */
 		slot.data = init_tournament(&run_i[run], range_i->id);
@@ -267,35 +250,63 @@ static void
 	return (void*)1;
 }
 
-void
-Merge(void* data){
-	struct opt_t odb = *(struct opt_t *)data;
-	int fd_run[odb.nr_merge_th][odb.nr_run];
-	struct MergeArgs merge_args[odb.nr_merge_th];
-	pthread_t mrg_thread[odb.nr_merge_th];
-	for(int range = 0; range < odb.nr_merge_th; range++){
-		for(int file = 0; file < odb.nr_run; file++){
-			fd_run[range][file] =
-				open( (odb.d_runpath[range] + std::to_string(file)).c_str(),
-						O_DIRECT | O_RDONLY);
+
+static void
+get_file_info(int nr_range, int nr_run, std::string *path,
+				int *fd, uint64_t *nr_entries)
+{
+
+	for(int range = 0; range < nr_range; range++){
+		nr_entries[range] = 0;
+		for (int file = 0; file < nr_run; file++){
+			std::string runpath = path[range] + std::to_string(file);
+			FILE* fp = fopen(runpath.c_str(), "r");
+			assert(fp != NULL);
+
+			fseek(fp, 0L, SEEK_END);
+
+			nr_entries[range] += ftell(fp)/KV_SIZE;
+			fclose(fp);
+
+			fd[range*nr_run + file] = open( runpath.c_str(), O_DIRECT | O_RDONLY);
 		}
 	}
 
+}
+
+void
+Merge(void* data){
+	struct opt_t odb = *(struct opt_t *)data;
+
+	int fd_run[odb.nr_merge_th][odb.nr_run];
+	struct MergeArgs merge_args[odb.nr_merge_th];
+	uint64_t nr_entries[odb.nr_merge_th];
+	pthread_t mrg_thread[odb.nr_merge_th];
+
+	struct RunDesc *rd;
+	rd = (struct RunDesc *)malloc(odb.nr_run * odb.nr_merge_th *
+											sizeof(struct RunDesc));
+
+	load_meta(&rd[0], odb.nr_run * odb.nr_merge_th, odb.metapath);
+
+	/* get all file descriptor and the number of entries */
+	get_file_info(odb.nr_merge_th, odb.nr_run, &odb.d_runpath[0],
+									&fd_run[0][0], &nr_entries[0]);
+
 	time_init(odb.nr_merge_th, &mrg_time);
-	uint64_t *range_table;
-	range_table = (uint64_t *)calloc(odb.nr_merge_th * odb.nr_run, sizeof(uint64_t));
 
-	file_to_range(&range_table[0], odb);
-
-	uint64_t nr_entries;
 	if(!odb.runform){
-		nr_entries = print_range(&range_table[0], odb.nr_merge_th, odb.nr_run);
-		assert(nr_entries == odb.total_size/KV_SIZE);
+		uint64_t nr_sum = 0;
+		for(int range = 0; range < odb.nr_merge_th; range++){
+			std::cout << "[" << range << "] NR_ENTRIES: " << nr_entries[range] << std::endl;
+			nr_sum += nr_entries[range];
+		}
+		assert(nr_sum == odb.total_size/KV_SIZE);
 	}
 
 	int range_ofs;
 	for(int th = 0; th < odb.nr_merge_th; th++){
-		nr_entries = 0;
+		//nr_entries = 0;
 		range_ofs = th * odb.nr_run;
 
 		merge_args[th].th_id = th;
@@ -304,12 +315,7 @@ Merge(void* data){
 		merge_args[th].blk_size = odb.mrg_blksize;
 		merge_args[th].wrbuf_size = odb.mrg_wrbuf;
 		merge_args[th].fd_run = &fd_run[th][0];
-		merge_args[th].range_table = &range_table[range_ofs];
-
-		for(int i = 0; i < odb.nr_run; i++){
-			nr_entries += range_table[range_ofs + i];
-		}
-		merge_args[th].nr_entries = nr_entries;
+		merge_args[th].nr_entries = nr_entries[th];
 		merge_args[th].outpath = odb.d_outpath[th] + std::to_string(th);
 
 		pthread_create(&mrg_thread[th], NULL, t_Merge, &merge_args[th]);
@@ -321,7 +327,6 @@ Merge(void* data){
 		assert(is_ok == 1);
 	}
 
-	free(range_table);
 	for(int range = 0; range < odb.nr_merge_th; range++){
 		for(int file = 0; file < odb.nr_run; file++){
 			close(fd_run[range][file]);
