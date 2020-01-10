@@ -21,6 +21,7 @@ struct MergeArgs{
 	uint64_t wrbuf_size;
 	uint64_t *blk_ofs;
 	uint64_t *nr_entries;
+	uint64_t *verify_key;
 	uint64_t total_entries;
 	std::string outpath;
 };

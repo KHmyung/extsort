@@ -21,6 +21,38 @@ print_thread_time(int id, struct TimeFormat time){
 }
 
 static void
+clear_input(std::string *path, int nr_files){
+
+	for(int i = 0; i < nr_files; i++){
+
+		int res = remove(path[i].c_str());
+		assert( res == 0 );
+	}
+}
+
+static void
+clear_run(std::string *path, int nr_files, int nr_range){
+
+	for(int i = 0; i < nr_range; i++){
+		for(int j = 0; j < nr_files; j++){
+
+			int res = remove( (path[i] + std::to_string(j)).c_str() );
+			assert( res == 0 );
+		}
+	}
+}
+
+static void
+clear_output(std::string *path, int nr_files){
+
+	for(int i = 0; i < nr_files; i++){
+
+		int res = remove((path[i] + std::to_string(i)).c_str());
+		assert( res == 0 );
+	}
+}
+
+static void
 stat_threads(struct TimeStats *stats, struct TimeFormat src, int nr_thread){
 
 	stats->first_time = src.arrival_t[0];
@@ -127,6 +159,7 @@ free_timestruct(struct TimeFormat *time){
 		free(time->sort_c);
 }
 
+
 int
 main(int argc, char *argv[]){
 
@@ -157,9 +190,8 @@ main(int argc, char *argv[]){
 		calclock(local_time, &run_time.total_t, &run_time.total_c);
 	}
 
-	if(do_clear == 2){		/* deleting input file */
-		int res = remove(opt->inpath.c_str());
-		assert ( res == 0 );
+	if(opt->runform && do_clear > 1){		/* deleting input file */
+		clear_input(&opt->d_inpath[0], opt->nr_datagen_th);
 	}
 
 	if(opt->merge){			/* merge */
@@ -171,14 +203,14 @@ main(int argc, char *argv[]){
 		std::cout << "\n <TEST FINISHED>" << std::endl;
 	}
 
-	if(opt->runform && do_clear > 0){		/* deleting run files */
-		for(int range = 0 ; range < opt->nr_merge_th; range++){
-			for(int file = 0; file < opt->nr_run; file++){
-				int res = remove( (opt->d_runpath[range] + std::to_string(file)).c_str());
-				assert(res == 0);
-			}
-		}
+	if(opt->merge && do_clear > 0){		/* deleting run file */
+		clear_run(&opt->d_runpath[0], opt->nr_run, opt->nr_merge_th);
 	}
+
+	if(opt->merge && do_clear > 2){
+		clear_output(&opt->d_outpath[0], opt->nr_merge_th);
+	}
+
 	if(opt->runform || opt->merge)
 		ShowStats(opt);
 	free(opt);

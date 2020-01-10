@@ -17,7 +17,7 @@ opt_init(struct opt_t *odb)						/* option database */
 	odb->merge = DO_MERGE;
 	do_verify = DO_VERIFY;
 	do_profile = DO_PROFILE;
-	do_clear = 1;
+	do_clear = 0;
 	odb->nr_datagen_th = NRTH_DATAGEN;			/* number of data generation threads */
 	odb->nr_runform_th = NRTH_RUNFORM;			/* number of runformation threads */
 	odb->nr_merge_th = NRTH_MRG;				/* number of merge threads */

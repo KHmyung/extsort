@@ -165,16 +165,19 @@ range_estimation(struct Data* buf, uint64_t *p, int nr_range, uint64_t size)
 		p[range] = buf[boundary_ofs * range].key;
 	}
 
+	/*
 	if(do_verify){
 		std::cout << "\nRange Estimation (key)" << std::endl;
 		for(int range = 0; range < nr_range; range++){
 			std::cout << "[Range" << range << "] : " << p[range] << std::endl;
 		}
 	}
+	*/
 }
 
-static void range_partitioning(struct Data *buf, uint64_t *p, uint64_t size,
-								int nr_range, struct RunDesc *rd, int id)
+static void
+range_partitioning(struct Data *buf, uint64_t *p, uint64_t size,
+			int nr_range, struct RunDesc *rd, int id)
 {
 	int range = 0;
 	uint64_t cnt = 0;
@@ -200,18 +203,6 @@ static void range_partitioning(struct Data *buf, uint64_t *p, uint64_t size,
 		cnt++;
 	}
 	assert(sum == len);
-
-	/*
-	if(do_verify){
-		std::cout << "\nRange Partitioning" << std::endl;
-		std::cout << "Valid entries" << std::endl;
-		for(int range = 0; range < nr_range; range++){
-			std::cout << "[" << id << "-Run" << rd[range].run_dd <<
-			"-Range" <<	range << "] : " << rd[range].valid_entries << std::endl;
-		}
-	}
-	*/
-
 
 }
 
@@ -241,25 +232,10 @@ range_calibration(struct RunDesc *rd, uint64_t mrg_blk_size, int nr_range, int i
 			rd[range].rw_size += DIO_ALIGN;
 		}
 	}
-	/*
-	if(do_verify){
-			std::cout << "Write Offset" << std::endl;
-			for(int range = 0; range < nr_range; range++){
-				std::cout << "[" << id << "-Run" << rd[range].run_dd <<
-					"-Range" << range << "]: " << rd[range].rw_ofs << std::endl;
-			}
-			std::cout << "Write Size" << std::endl;
-			for(int range = 0; range < nr_range; range++){
-				std::cout << "[" << id << "-Run" << rd[range].run_dd <<
-				"-Range" << range << "]: " << rd[range].rw_size << std::endl;
-			}
-	}
-	*/
-
 }
 
 static void
-record_run_dd(struct RunDesc *rd, int nr_range, int run){
+record_run_id(struct RunDesc *rd, int nr_range, int run){
 
 	for(int range = 0; range < nr_range; range++){
 
@@ -299,7 +275,7 @@ t_RunFormation(void *data)
 
 	while(done < nr_run){
 
-		record_run_dd(&run_d[done * nr_range], nr_range, run_ofs);
+		record_run_id(&run_d[done * nr_range], nr_range, run_ofs);
 
 		refill_buffer(fd_input, (char*)runbuf, blk_size, th_id);
 
@@ -357,7 +333,7 @@ RunFormation(void* data){
 
 	struct RunDesc *run_d;
 	run_d = (struct RunDesc *)malloc(odb.nr_run * odb.nr_merge_th *
-											sizeof(struct RunDesc));
+						sizeof(struct RunDesc));
 
 	struct RunformationArgs runformation_args[odb.nr_runform_th];
 	int thread_id[odb.nr_runform_th];

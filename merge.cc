@@ -1,6 +1,8 @@
 #include "merge.h"
 
 #define FIRST 1
+#define MIN 0
+#define MAX 1
 
 struct TimeFormat mrg_time;
 
@@ -150,14 +152,14 @@ open_run_files(int nr_range, int nr_run, std::string *path, int *fd)
 			std::string runpath = path[range] + std::to_string(file);
 
 			fd[range * nr_run + file] = open( runpath.c_str(), O_DIRECT | O_RDONLY);
+			assert(fd[range * nr_run + file] > 0);
 		}
 	}
 
 }
 
 static void
-get_run_info(uint64_t *blk_ofs, uint64_t *nr_entries, int nr_range, int nr_run,
-																std::string path)
+get_run_info(uint64_t *blk_ofs, uint64_t *nr_entries, int nr_range, int nr_run, std::string path)
 {
 	struct RunDesc *rd;
 	rd = (struct RunDesc *)malloc(nr_range * nr_run * sizeof(struct RunDesc));
@@ -187,6 +189,7 @@ static void
 	int nr_run = args.nr_run;
 	int nr_range = args.nr_range;
 	uint64_t wrbuf_size = args.wrbuf_size;
+	uint64_t *verify_key = args.verify_key;
 	uint64_t last_key;
 	std::priority_queue<id_Data, std::vector<id_Data>, std::greater<id_Data>> pq;
 
@@ -222,7 +225,8 @@ static void
 			O_DIRECT | O_RDWR | O_CREAT | O_LARGEFILE | O_TRUNC, 0644);
 
 	if(do_verify){
-		print_key(range_i->id, 1, pq.top().data.key);
+		verify_key[MIN] = pq.top().data.key;
+		//print_key(range_i->id, 1, pq.top().data.key);
 	}
 
 	/* start merging range */
@@ -267,7 +271,8 @@ static void
 
 
 	if(do_verify){
-		print_key(range_i->id, 0, last_key);
+		verify_key[MAX] = last_key;
+		//print_key(range_i->id, 0, last_key);
 	}
 
 	/* flush the last buffer */
@@ -304,10 +309,9 @@ Merge(void* data){
 	nr_entries = (uint64_t *)malloc(odb.nr_run * odb.nr_merge_th * sizeof(uint64_t));
 
 	/* get information about each run file */
-	get_run_info(&blk_ofs[0], &nr_entries[0],
-							odb.nr_merge_th, odb.nr_run, odb.metapath);
+	get_run_info(&blk_ofs[0], &nr_entries[0], odb.nr_merge_th, odb.nr_run, odb.metapath);
 
-
+	uint64_t verify_key[odb.nr_merge_th][2];
 	int fd_run[odb.nr_merge_th][odb.nr_run];
 
 	/* get entire file descriptors */
@@ -340,6 +344,7 @@ Merge(void* data){
 		merge_args[th].wrbuf_size = odb.mrg_wrbuf;
 		merge_args[th].fd_run = &fd_run[th][0];
 		merge_args[th].blk_ofs = &blk_ofs[range_ofs];
+		merge_args[th].verify_key = &verify_key[th][0];
 		merge_args[th].nr_entries = &nr_entries[range_ofs];
 		merge_args[th].total_entries = range_entries_sum[th];
 		merge_args[th].outpath = odb.d_outpath[th] + std::to_string(th);
@@ -351,6 +356,12 @@ Merge(void* data){
 	for(int th = 0; th < odb.nr_merge_th; th++){
 		pthread_join(mrg_thread[th], (void **)&is_ok);
 		assert(is_ok == 1);
+	}
+
+	if(do_verify){
+		for(int range = 0; range < odb.nr_merge_th-1; range++){
+			assert(verify_key[range][MAX] <= verify_key[range+1][MIN]);
+		}
 	}
 
 	for(int range = 0; range < odb.nr_merge_th; range++){
