@@ -59,8 +59,7 @@ struct id_Data{
 struct RunDesc{
 	int run_id;
 	uint64_t valid_entries;	/* entry */
-	uint64_t start_ofs;		/* entry */
-	uint64_t end_ofs;		/* entry */
+	uint64_t blk_ofs;		/* entry */
 	uint64_t rw_size;		/* byte  */
 	uint64_t rw_ofs;		/* byte  */
 };

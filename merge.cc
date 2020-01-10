@@ -1,5 +1,7 @@
 #include "merge.h"
 
+#define FIRST 1
+
 struct TimeFormat mrg_time;
 
 static unsigned long long * __time_alloc(int nr){
@@ -30,7 +32,7 @@ alloc_buf(uint64_t size){
 }
 
 static int
-refill_buffer(struct RunInfo *ri, int range){
+refill_buffer(struct RunInfo *ri, int range, int first){
 	int ret = 0;
 	int64_t size = ri->blk_entry * KV_SIZE;
 	struct timespec local_time[2];
@@ -42,12 +44,12 @@ refill_buffer(struct RunInfo *ri, int range){
 	int64_t read_byte = ReadData(ri->fd, (char*)&ri->blkbuf[0], size);
 	assert(read_byte >= 0);
 	if(read_byte == 0){
-		ri->done = 1;
 		ret = 1;
 	}
 	ri->blk_entry = read_byte/KV_SIZE;
 	ri->run_ofs++;
-	ri->blk_ofs = 0;
+	if(!first)
+		ri->blk_ofs = 0;
 
 	if(do_verify && ri->blk_entry > 1){
 		for(int i = 0; i < ri->blk_entry - 1; i++){
@@ -80,31 +82,24 @@ flush_buffer(int fd, char* buf, int64_t size, int id)
 }
 
 static void
-load_meta(struct RunDesc *rd, int nr_array, std::string path){
-	FILE* meta = fopen(path.c_str(), "r");
-
-	fread(&rd[0], sizeof(struct RunDesc), nr_array, meta);
-
-	fclose(meta);
-}
-
-static void
 init_range_info(struct RangeInfo *range_i, struct MergeArgs args){
 	range_i->id = args.th_id;
 	range_i->mrg_ofs = 0;
+	range_i->target = args.total_entries;
 	range_i->merged = 0;
 	range_i->g_blkbuf = alloc_buf(args.blk_size * args.nr_run);
 	range_i->g_mrgbuf = alloc_buf(args.wrbuf_size);
 }
 
 static void
-init_run_info(struct RunInfo *ri, Data* g_blkbuf,
-				int fd, int run, uint64_t blk_size)
+init_run_info(struct RunInfo *ri, Data* g_blkbuf, uint64_t nr_entries,
+				uint64_t blk_ofs, int fd, int run, uint64_t blk_size)
 {
 	ri->fd = fd;
-	ri->done = 0;
 	ri->run_ofs = 0;
-	ri->blk_ofs = 0;
+	ri->nr_entries = nr_entries;
+	ri->merged = 0;
+	ri->blk_ofs = blk_ofs;
 	ri->blk_entry = blk_size/KV_SIZE;
 
 	/* buffer allocation for this run */
@@ -115,7 +110,7 @@ static struct Data
 init_tournament(struct RunInfo *ri, int range){
 	struct Data first_data;
 
-	refill_buffer(ri, range);
+	refill_buffer(ri, range, FIRST);
 	first_data = ri->blkbuf[ri->blk_ofs++];
 
 	return first_data;
@@ -138,6 +133,52 @@ verify_state(struct RunInfo *ri, int range, uint64_t key)
 }
 
 static void
+load_meta(struct RunDesc *rd, int nr_array, std::string path){
+	FILE* meta = fopen(path.c_str(), "r");
+
+	fread(&rd[0], sizeof(struct RunDesc), nr_array, meta);
+
+	fclose(meta);
+}
+
+static void
+open_run_files(int nr_range, int nr_run, std::string *path, int *fd)
+{
+
+	for(int range = 0; range < nr_range; range++){
+		for(int file = 0; file < nr_run; file++){
+			std::string runpath = path[range] + std::to_string(file);
+
+			fd[range * nr_run + file] = open( runpath.c_str(), O_DIRECT | O_RDONLY);
+		}
+	}
+
+}
+
+static void
+get_run_info(uint64_t *blk_ofs, uint64_t *nr_entries, int nr_range, int nr_run,
+																std::string path)
+{
+	struct RunDesc *rd;
+	rd = (struct RunDesc *)malloc(nr_range * nr_run * sizeof(struct RunDesc));
+
+	load_meta(&rd[0], nr_range * nr_run, path);
+
+	for(int range = 0; range < nr_range; range++){
+		for(int file = 0; file < nr_run; file++){
+
+			nr_entries[range * nr_run + file] =
+						rd[file * nr_range + range].valid_entries;
+			blk_ofs[range * nr_run + file] =
+						rd[file * nr_range + range].blk_ofs;
+
+		}
+	}
+
+	free(rd);
+}
+
+static void
 *t_Merge(void* data){
 	struct MergeArgs args = *(struct MergeArgs*)data;
 
@@ -146,7 +187,6 @@ static void
 	int nr_run = args.nr_run;
 	int nr_range = args.nr_range;
 	uint64_t wrbuf_size = args.wrbuf_size;
-	uint64_t nr_entries = args.nr_entries;
 	uint64_t last_key;
 	std::priority_queue<id_Data, std::vector<id_Data>, std::greater<id_Data>> pq;
 
@@ -165,8 +205,8 @@ static void
 
 	for(int run = 0; run < nr_run; run++){
 		/* initialize run data structure */
-		init_run_info(&run_i[run], &range_i->g_blkbuf[0], args.fd_run[run],
-															run, blk_size);
+		init_run_info(&run_i[run], &range_i->g_blkbuf[0], args.nr_entries[run],
+					 args.blk_ofs[run], args.fd_run[run], run, blk_size);
 
 		/* initialize tournament */
 		slot.data = init_tournament(&run_i[run], range_i->id);
@@ -198,28 +238,30 @@ static void
 		}
 
 		/* if all entries are merged */
-		if(++range_i->merged == nr_entries)
+		if(++range_i->merged == range_i->target)
 			break;
 
 		/* flush full merge buffer */
 		if(range_i->mrg_ofs == wrbuf_size/KV_SIZE){
+
 			flush_buffer(fd_output, (char*)&range_i->g_mrgbuf[0],
 							wrbuf_size, range_i->id);
 			range_i->mrg_ofs = 0;
 		}
 
+		if(run_i[slot.run_id].nr_entries == run_i[slot.run_id].merged)
+			continue;
+
 		/* check block buffer is exhausted */
 		if(run_i[slot.run_id].blk_ofs == run_i[slot.run_id].blk_entry){
 
-			/* continue if the run is completed already */
-			if(run_i[slot.run_id].done)
-				continue;
 			/* refill block */
-			int ret = refill_buffer(&run_i[slot.run_id], range_i->id);
+			int ret = refill_buffer(&run_i[slot.run_id], range_i->id, !FIRST);
 			if(ret) continue;
 		}
 		/* put one into tournament */
 		slot.data = run_i[slot.run_id].blkbuf[run_i[slot.run_id].blk_ofs++];
+		run_i[slot.run_id].merged++;
 		pq.push(slot);
 	}
 
@@ -251,62 +293,44 @@ static void
 }
 
 
-static void
-get_file_info(int nr_range, int nr_run, std::string *path,
-				int *fd, uint64_t *nr_entries)
-{
-
-	for(int range = 0; range < nr_range; range++){
-		nr_entries[range] = 0;
-		for (int file = 0; file < nr_run; file++){
-			std::string runpath = path[range] + std::to_string(file);
-			FILE* fp = fopen(runpath.c_str(), "r");
-			assert(fp != NULL);
-
-			fseek(fp, 0L, SEEK_END);
-
-			nr_entries[range] += ftell(fp)/KV_SIZE;
-			fclose(fp);
-
-			fd[range*nr_run + file] = open( runpath.c_str(), O_DIRECT | O_RDONLY);
-		}
-	}
-
-}
-
 void
 Merge(void* data){
 	struct opt_t odb = *(struct opt_t *)data;
 
+	uint64_t *blk_ofs;
+	blk_ofs = (uint64_t *)malloc(odb.nr_run * odb.nr_merge_th * sizeof(uint64_t));
+
+	uint64_t *nr_entries;
+	nr_entries = (uint64_t *)malloc(odb.nr_run * odb.nr_merge_th * sizeof(uint64_t));
+
+	/* get information about each run file */
+	get_run_info(&blk_ofs[0], &nr_entries[0],
+							odb.nr_merge_th, odb.nr_run, odb.metapath);
+
+
 	int fd_run[odb.nr_merge_th][odb.nr_run];
-	struct MergeArgs merge_args[odb.nr_merge_th];
-	uint64_t nr_entries[odb.nr_merge_th];
-	pthread_t mrg_thread[odb.nr_merge_th];
 
-	struct RunDesc *rd;
-	rd = (struct RunDesc *)malloc(odb.nr_run * odb.nr_merge_th *
-											sizeof(struct RunDesc));
-
-	load_meta(&rd[0], odb.nr_run * odb.nr_merge_th, odb.metapath);
-
-	/* get all file descriptor and the number of entries */
-	get_file_info(odb.nr_merge_th, odb.nr_run, &odb.d_runpath[0],
-									&fd_run[0][0], &nr_entries[0]);
+	/* get entire file descriptors */
+	open_run_files(odb.nr_merge_th, odb.nr_run, &odb.d_runpath[0], &fd_run[0][0]);
 
 	time_init(odb.nr_merge_th, &mrg_time);
 
-	if(!odb.runform){
-		uint64_t nr_sum = 0;
-		for(int range = 0; range < odb.nr_merge_th; range++){
-			std::cout << "[" << range << "] NR_ENTRIES: " << nr_entries[range] << std::endl;
-			nr_sum += nr_entries[range];
+	uint64_t range_entries_sum[odb.nr_merge_th];
+	uint64_t total_entries = 0;
+	for(int range = 0; range < odb.nr_merge_th; range++){
+		range_entries_sum[range] = 0;
+		for(int file = 0; file < odb.nr_run; file++){
+			range_entries_sum[range] += nr_entries[range * odb.nr_run + file];
 		}
-		assert(nr_sum == odb.total_size/KV_SIZE);
+		total_entries += range_entries_sum[range];
 	}
+	assert(total_entries == odb.total_size/KV_SIZE);
+
+	struct MergeArgs merge_args[odb.nr_merge_th];
+	pthread_t mrg_thread[odb.nr_merge_th];
 
 	int range_ofs;
 	for(int th = 0; th < odb.nr_merge_th; th++){
-		//nr_entries = 0;
 		range_ofs = th * odb.nr_run;
 
 		merge_args[th].th_id = th;
@@ -315,7 +339,9 @@ Merge(void* data){
 		merge_args[th].blk_size = odb.mrg_blksize;
 		merge_args[th].wrbuf_size = odb.mrg_wrbuf;
 		merge_args[th].fd_run = &fd_run[th][0];
-		merge_args[th].nr_entries = nr_entries[th];
+		merge_args[th].blk_ofs = &blk_ofs[range_ofs];
+		merge_args[th].nr_entries = &nr_entries[range_ofs];
+		merge_args[th].total_entries = range_entries_sum[th];
 		merge_args[th].outpath = odb.d_outpath[th] + std::to_string(th);
 
 		pthread_create(&mrg_thread[th], NULL, t_Merge, &merge_args[th]);
@@ -333,5 +359,7 @@ Merge(void* data){
 		}
 	}
 
+	free(nr_entries);
+	free(blk_ofs);
 }
 

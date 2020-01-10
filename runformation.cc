@@ -230,10 +230,7 @@ range_calibration(struct RunDesc *rd, uint64_t mrg_blk_size, int nr_range, int i
 		end = (cum_ofs + rd[range].valid_entries) * KV_SIZE;
 
 		/* first data offset in the first block */
-		rd[range].start_ofs = (start % mrg_blk_size) / KV_SIZE;
-
-		/* last data offset in the last block */
-		rd[range].end_ofs = (end % mrg_blk_size) / KV_SIZE;
+		rd[range].blk_ofs = (start % DIO_ALIGN) / KV_SIZE;
 
 		/* write offset */
 		rd[range].rw_ofs = (start / DIO_ALIGN) * DIO_ALIGN / KV_SIZE;

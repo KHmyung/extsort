@@ -167,7 +167,7 @@ opt_parse(int argc, char *argv[], struct opt_t *odb){
 		odb->d_runpath.clear();
 		odb->d_outpath.clear();
 
-		char c = 'a';
+		char c = '1';
 		for(int i = 0; i < odb->nr_merge_th; i++){
 			odb->d_inpath.push_back(INPUT_PATH);
 			odb->d_runpath.push_back(RUN_PATH);		/* path to temporary run files */
