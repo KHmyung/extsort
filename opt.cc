@@ -161,20 +161,21 @@ opt_parse(int argc, char *argv[], struct opt_t *odb){
 		odb->mem_size = ((uint64_t)atoi(memsize))*1024*1024;
 	}
 	if(th){
+		odb->nr_datagen_th = atoi(th);
 		odb->nr_runform_th = atoi(th);
 		odb->nr_merge_th = atoi(th);
 		odb->d_inpath.clear();
 		odb->d_runpath.clear();
 		odb->d_outpath.clear();
 
-		char c = '1';
+		int c = 1;
 		for(int i = 0; i < odb->nr_merge_th; i++){
 			odb->d_inpath.push_back(INPUT_PATH);
 			odb->d_runpath.push_back(RUN_PATH);		/* path to temporary run files */
 			odb->d_outpath.push_back(OUTPUT_PATH);	/* path to output files */
-			odb->d_inpath[i].append(1, c);
-			odb->d_runpath[i].append(1, c);
-			odb->d_outpath[i].append(1, c);
+			odb->d_inpath[i] += std::to_string(c);
+			odb->d_runpath[i] += std::to_string(c);
+			odb->d_outpath[i] += std::to_string(c);
 			odb->d_inpath[i] += "/in.txt";
 			odb->d_runpath[i] += "/run_";
 			odb->d_outpath[i] += "/range_";

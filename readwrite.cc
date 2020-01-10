@@ -49,7 +49,9 @@ WriteData(int fd, char* buf, int64_t buf_size){
 			if(errno == EINTR){
 				continue;
 			}
-			else return -1;
+			else {
+				return -1;
+			}
 		}
 	}
 }
