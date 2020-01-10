@@ -2,21 +2,26 @@
 
 ## Goal
 
- - _Exploits the parallelism of resources such as processors, storages_
+ - _Exploits the data parallelism through range partitioning_
  
- - _Minimize the interference among threads_
+ - _Minimize the interference among internal resources of storage_
 
 ## Usage
+
  _1. Download the source files_
- > git clone https://github.com/khmyung/extsort.git
+  > git clone https://github.com/khmyung/extsort.git
 
  _2. Compile the codes_
- > cd extsort
- 
- > make
- 
- _3. Check options_
- > ./extsort -h
+  > cd extsort
 
- _4. Run the external sort_
- > (example) ./extsort -G -R -M -P -d 1 -m 128 -t 4
+  > make
+ 
+ _3. Set options shown with the below command_
+  > ./extsort -h
+
+ _4. Create directory layout_
+  > ./mkdir.sh : input number means the number of worker threads
+
+ _5. Run the external sort_
+  > ./extsort -G -R -M -P -w 4	: example
+
