@@ -1,9 +1,15 @@
 #!/bin/bash
 
+ulimit -n 65536
+
 BASEDIR=../
 
-for x in {1..128}; do
-	mkdir -p $BASEDIR/input/$x
-	mkdir -p $BASEDIR/runs/$x
-	mkdir -p $BASEDIR/output/$x
+echo "(CREATE: Please enter #n)"
+read num
+
+for ((i = 1; i <= num; i++))
+do
+	mkdir -p $BASEDIR/input/$i
+	mkdir -p $BASEDIR/runs/$i
+	mkdir -p $BASEDIR/output/$i
 done

@@ -1,9 +1,15 @@
 #!/bin/bash
 
+ulimit -n 65536
+
 BASEDIR=../
 
-for x in {1..128}; do
-	rm -r $BASEDIR/input/$x
-	rm -r $BASEDIR/runs/$x
-	rm -r $BASEDIR/output/$x
+echo "(REMOVE : Please enter #n)"
+read num
+
+for ((i = 1; i <= num; i++))
+do
+	rm -r $BASEDIR/input/$i
+	rm -r $BASEDIR/runs/$i
+	rm -r $BASEDIR/output/$i
 done
