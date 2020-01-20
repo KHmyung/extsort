@@ -2,14 +2,12 @@
 
 ulimit -n 65536
 
-BASEDIR=../
+BASEDIR=/mnt/test/a/
+num=$1
 
-echo "(CREATE: Please enter #n)"
-read num
-
-for ((i = 1; i <= num; i++))
+for ((i = 1; i <= ${num}; i++))
 do
-	mkdir -p $BASEDIR/input/$i
-	mkdir -p $BASEDIR/runs/$i
-	mkdir -p $BASEDIR/output/$i
+	mkdir -p $BASEDIR$i/input
+	mkdir -p $BASEDIR$i/runs
+	mkdir -p $BASEDIR$i/output
 done

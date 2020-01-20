@@ -2,14 +2,10 @@
 
 ulimit -n 65536
 
-BASEDIR=../
+BASEDIR=/mnt/test/
+cnt=$1
 
-echo "(REMOVE : Please enter #n)"
-read num
-
-for ((i = 1; i <= num; i++))
+for ((i = 1; i <= ${cnt}; i++))
 do
-	rm -r $BASEDIR/input/$i
-	rm -r $BASEDIR/runs/$i
-	rm -r $BASEDIR/output/$i
+	sudo umount $BASEDIR$i || /bin/true
 done

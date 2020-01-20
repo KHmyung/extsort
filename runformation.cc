@@ -1,5 +1,5 @@
 #include "runformation.h"
-
+#include <fcntl.h>
 #define CURR 0
 #define NEXT 1
 #define DIO_ALIGN (4096)
@@ -137,10 +137,9 @@ random_sampling(std::string *filename, uint64_t filesize, int nr_file,
 		fd[file] = open( filename[file].c_str(), O_DIRECT | O_RDONLY);
 		assert(fd[file] > 0);
 	}
-
 	while(done < sample_count){
 		int file = rand() % nr_file;
-		int rand_ptr = rand() % (filesize/nr_file/DIO_ALIGN);
+		uint64_t rand_ptr = rand() % (filesize/nr_file/DIO_ALIGN);
 		pread(fd[file], &buf[0] + done*ENTRY_ALIGN, DIO_ALIGN, rand_ptr*DIO_ALIGN);
 
 		done++;
@@ -154,7 +153,6 @@ static void
 range_estimation(struct Data* buf, uint64_t *p, int nr_range, uint64_t size)
 {
 	uint64_t nr_entries = size/KV_SIZE;
-	/* set boundary conservatively */
 	uint64_t boundary_ofs = nr_entries/nr_range;
 
 	std::sort(&buf[0], buf + nr_entries, compare);
@@ -165,14 +163,12 @@ range_estimation(struct Data* buf, uint64_t *p, int nr_range, uint64_t size)
 		p[range] = buf[boundary_ofs * range].key;
 	}
 
-	/*
 	if(do_verify){
 		std::cout << "\nRange Estimation (key)" << std::endl;
 		for(int range = 0; range < nr_range; range++){
 			std::cout << "[Range" << range << "] : " << p[range] << std::endl;
 		}
 	}
-	*/
 }
 
 static void
@@ -297,7 +293,6 @@ t_RunFormation(void *data)
 			int64_t write_byte =
 			  flush_buffer(fd_run, (char*)&runbuf[run_d[done * nr_range + range].rw_ofs],
 							run_d[done * nr_range + range].rw_size, th_id);
-
 			sorted_entries += run_d[done * nr_range + range].valid_entries;
 			close(fd_run);
 		}
@@ -308,6 +303,9 @@ t_RunFormation(void *data)
 
 	assert(sorted_entries == data_size/KV_SIZE);
 
+	if(do_verify){
+		std::cout << "Thread completed (" << th_id << ")" << std::endl;
+	}
 	if(do_profile){
 		clock_gettime(CLOCK_MONOTONIC, &thread_time[1]);
 		calclock(thread_time, &run_time.arrival_t[th_id], &run_time.arrival_c[th_id]);
@@ -346,7 +344,7 @@ RunFormation(void* data){
 	int run_per_thread = odb.nr_run/odb.nr_runform_th;
 	int nr_file = odb.nr_runform_th;
 
-	uint64_t sample_size = odb.rf_blksize;
+	uint64_t sample_size = odb.total_size/32;
 	Data* randbuf = alloc_buf(sample_size);
 
 	/* gather random samples */

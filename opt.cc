@@ -23,14 +23,19 @@ opt_init(struct opt_t *odb)						/* option database */
 	odb->nr_merge_th = NRTH_MRG;				/* number of merge threads */
 
 	for(int i = 0; i < odb->nr_merge_th; i++){
-		odb->d_inpath.push_back(INPUT_PATH);		/* path to temporary run files */
-		odb->d_runpath.push_back(RUN_PATH);		/* path to temporary run files */
-		odb->d_outpath.push_back(OUTPUT_PATH);	/* path to output files */
-		odb->d_inpath[i] += "in.txt";
-		odb->d_runpath[i] += "run_";
-		odb->d_outpath[i] += "range_";
+		odb->d_inpath.push_back(BASE_PATH);		/* path to temporary run files */
+		odb->d_runpath.push_back(BASE_PATH);		/* path to temporary run files */
+		odb->d_outpath.push_back(BASE_PATH);	/* path to output files */
+		odb->d_inpath[i] += std::to_string(i);
+		odb->d_runpath[i] += std::to_string(i);
+		odb->d_outpath[i] += std::to_string(i);
+		odb->d_inpath[i] += "/input/in";
+		odb->d_runpath[i] += "/runs/run_";
+		odb->d_outpath[i] += "/output/range_";
 	}
-	odb->metapath = META_PATH;					/* path to temporary range metadata */
+	odb->basepath = BASE_PATH;
+	odb->metapath = BASE_PATH;				/* path to temporary range metadata */
+	odb->metapath += "meta.tmp";
 	odb->total_size = TOTAL_DATA_SIZE;			/* total file size */
 	odb->mem_size = MEM_SIZE;					/* total memory size */
 	odb->nr_run =								/* number of run files */
@@ -40,7 +45,7 @@ opt_init(struct opt_t *odb)						/* option database */
 
 	odb->kv_size = KV_SIZE;						/* key+value size */
 	odb->key_size = /*8B*/ 8;					/* key size */
-	odb->rf_blksize =							/* available blkbuf per runformation thread */
+	odb->rf_blksize =				/* available blkbuf per runformation thread */
 		(odb->mem_size/odb->nr_runform_th);
 
 	assert(odb->rf_blksize >= 4096);
@@ -71,9 +76,10 @@ usage(){
 	std::cout << "	-i  <opt> | Input file path" << std::endl;
 	std::cout << "	-o  <opt> | Output file path" << std::endl;
 	std::cout << "	-r  <opt> | Run file path" << std::endl;
+	std::cout << "	-b  <opt> | Base path" << std::endl;
 	std::cout << "	-d  <opt> | Data(input) file size to be sorted (default: 1GB)" << std::endl;
 	std::cout << "	-m  <opt> | Memory capacity to be used (default: 128MB)" << std::endl;
-	std::cout << "	-t  <opt> | Number of threads to be used (default: 4)\n" << std::endl;
+	std::cout << "	-w  <opt> | Number of threads to be used (default: 4)\n" << std::endl;
 }
 
 static char*
@@ -153,6 +159,7 @@ opt_parse(int argc, char *argv[], struct opt_t *odb){
 	get_path(argv, argv + argc, "-i", &odb->inpath);
 	get_path(argv, argv + argc, "-o", &odb->outpath);
 	get_path(argv, argv + argc, "-r", &odb->runpath);
+	get_path(argv, argv + argc, "-b", &odb->basepath);
 
 	if(datasize){
 		odb->total_size = ((uint64_t)atoi(datasize))*1024*1024*1024;
@@ -170,15 +177,15 @@ opt_parse(int argc, char *argv[], struct opt_t *odb){
 
 		int c = 1;
 		for(int i = 0; i < odb->nr_merge_th; i++){
-			odb->d_inpath.push_back(INPUT_PATH);
-			odb->d_runpath.push_back(RUN_PATH);		/* path to temporary run files */
-			odb->d_outpath.push_back(OUTPUT_PATH);	/* path to output files */
+			odb->d_inpath.push_back(odb->basepath);
+			odb->d_runpath.push_back(odb->basepath);	/* path to temporary run files */
+			odb->d_outpath.push_back(odb->basepath);	/* path to output files */
 			odb->d_inpath[i] += std::to_string(c);
 			odb->d_runpath[i] += std::to_string(c);
 			odb->d_outpath[i] += std::to_string(c);
-			odb->d_inpath[i] += "/in.txt";
-			odb->d_runpath[i] += "/run_";
-			odb->d_outpath[i] += "/range_";
+			odb->d_inpath[i] += "/input/in";
+			odb->d_runpath[i] += "/runs/run_";
+			odb->d_outpath[i] += "/output/range_";
 			c++;
 		}
 	}

@@ -69,12 +69,10 @@ t_DataGeneration(void* data){
 			offset = 0;
 		}
 	}
-	/*
 	if(do_verify){
-		std::cout << "[" << th_id << "] MIN_KEY: " << min_key  << std::endl;
-		std::cout << "[" << th_id << "] MAX_KEY: " << max_key  << std::endl;
+		std::cout << "[" << th_id << "] MIN_KEY: " << min_key << std::endl;
+		std::cout << "[" << th_id << "] MAX_KEY: " << max_key << std::endl;
 	}
-	*/
 
 	free(genbuf);
 

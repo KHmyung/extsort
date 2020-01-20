@@ -4,6 +4,7 @@
 #include <iostream>
 #include <vector>
 
+#define BASE_PATH "/mnt/test/"
 #define META_PATH "../meta.tmp"
 #define INPUT_PATH "../input/"
 #define OUTPUT_PATH "../output/"
@@ -45,6 +46,7 @@ struct opt_t {
 	std::string outpath;
 	std::string runpath;
 	std::string metapath;
+	std::string basepath;
 	std::vector<std::string> d_inpath;
 	std::vector<std::string> d_runpath;
 	std::vector<std::string> d_outpath;
