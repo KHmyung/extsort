@@ -344,7 +344,7 @@ RunFormation(void* data){
 	int run_per_thread = odb.nr_run/odb.nr_runform_th;
 	int nr_file = odb.nr_runform_th;
 
-	uint64_t sample_size = odb.total_size/32;
+	uint64_t sample_size = odb.total_size/1024;
 	Data* randbuf = alloc_buf(sample_size);
 
 	/* gather random samples */

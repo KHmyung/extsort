@@ -5,6 +5,9 @@
 #define NSTOS(ns)	(ns/1000000000)
 #define NSTOMS(ns)	(ns/1000000)
 
+static bool runform_done = false;
+static bool merge_done = false;
+
 static void
 print_time(const char *name, unsigned long long time){
 	std::cout << name << ": " << NSTOS(time) << "."
@@ -103,14 +106,14 @@ ShowStats(void* data){
 
 	if(do_profile){
 		std::cout << "\n <STATS>" << std::endl;
-		if(odb.runform && odb.merge){
+		if(odb.runform && odb.merge && runform_done && merge_done){
 			std::cout << "  [-----TOTAL(s)----] " << std::endl;
 			print_time("  AVG  Total        ", run_stat.avg_total + mrg_stat.avg_total);
 			print_time("       -Sort        ", run_stat.avg_sort + mrg_stat.avg_sort);
 			print_time("       -Read        ", run_stat.avg_read + mrg_stat.avg_read);
 			print_time("       -Write       ", run_stat.avg_write + mrg_stat.avg_write);
 		}
-		if(odb.runform){
+		if(odb.runform && runform_done){
 			std::cout << "  [-RUNFORMATION(s)-] " << std::endl;
 			print_time(" FIRST Arrival      ", run_stat.first_time);
 			print_time("  LAST Arrival      ", run_stat.last_time);
@@ -119,7 +122,7 @@ ShowStats(void* data){
 			print_time("       -Read        ", run_stat.avg_read);
 			print_time("       -Write       ", run_stat.avg_write);
 		}
-		if(odb.merge){
+		if(odb.merge && merge_done){
 			std::cout << "  [-----MERGE(s)----] " << std::endl;
 			print_time(" FIRST Arrival      ", mrg_stat.first_time);
 			print_time("  LAST Arrival      ", mrg_stat.last_time);
@@ -131,13 +134,13 @@ ShowStats(void* data){
 
 		std::cout << "\n <THREADS STATS>\n ";
 		std::cout << "|  (id)  | (Total) (Sort) (Read) (Write)>" << std::endl;
-		if(odb.runform){
+		if(odb.runform && runform_done){
 			std::cout << " [-RUNFORMATION(s)-] " << std::endl;
 			for (int th = 0; th < odb.nr_runform_th; th++){
 				print_thread_time(th, run_time);
 			}
 		}
-		if(odb.merge){
+		if(odb.merge && merge_done){
 			std::cout << " [---- MERGE(s)----] " << std::endl;
 			for (int th = 0; th < odb.nr_merge_th; th++){
 				print_thread_time(th, mrg_time);
@@ -186,9 +189,13 @@ main(int argc, char *argv[]){
 		clock_gettime(CLOCK_MONOTONIC, &local_time[0]);
 		std::cout << "\n RUN FORMATION" << std::endl;
 		RunFormation(opt);
+		runform_done = true;
 		clock_gettime(CLOCK_MONOTONIC, &local_time[1]);
 		calclock(local_time, &run_time.total_t, &run_time.total_c);
 	}
+
+	if(opt->runform)
+		ShowStats(opt);
 
 	if(opt->runform && do_clear > 1){		/* deleting input file */
 		clear_input(&opt->d_inpath[0], opt->nr_datagen_th);
@@ -198,6 +205,7 @@ main(int argc, char *argv[]){
 		clock_gettime(CLOCK_MONOTONIC, &local_time[0]);
 		std::cout << "\n MERGING" << std::endl;
 		Merge(opt);
+		merge_done = true;
 		clock_gettime(CLOCK_MONOTONIC, &local_time[1]);
 		calclock(local_time, &mrg_time.total_t, &mrg_time.total_c);
 		std::cout << "\n <TEST FINISHED>" << std::endl;
@@ -211,7 +219,7 @@ main(int argc, char *argv[]){
 		clear_output(&opt->d_outpath[0], opt->nr_merge_th);
 	}
 
-	if(opt->runform || opt->merge)
+	if(opt->merge)
 		ShowStats(opt);
 	free(opt);
 
