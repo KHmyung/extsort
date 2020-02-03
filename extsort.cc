@@ -90,9 +90,9 @@ ShowStats(void* data){
 	struct TimeStats run_stat;
 	struct TimeStats mrg_stat;
 
-	if(odb.runform)
+	if(odb.runform && runform_done)
 		stat_threads(&run_stat, run_time, odb.nr_runform_th);
-	if(odb.merge)
+	if(odb.merge && merge_done)
 		stat_threads(&mrg_stat, mrg_time, odb.nr_merge_th);
 
 	std::cout << "\n <PROFILE>" << std::endl;
@@ -197,7 +197,8 @@ main(int argc, char *argv[]){
 	if(opt->runform)
 		ShowStats(opt);
 
-	if(opt->runform && do_clear > 1){		/* deleting input file */
+
+	if(opt->runform && do_clear > 0 && runform_done){		/* deleting input file */
 		clear_input(&opt->d_inpath[0], opt->nr_datagen_th);
 	}
 
@@ -211,15 +212,15 @@ main(int argc, char *argv[]){
 		std::cout << "\n <TEST FINISHED>" << std::endl;
 	}
 
-	if(opt->merge && do_clear > 0){		/* deleting run file */
+	if(opt->merge && do_clear > 1 && merge_done){		/* deleting run file */
 		clear_run(&opt->d_runpath[0], opt->nr_run, opt->nr_merge_th);
 	}
 
-	if(opt->merge && do_clear > 2){
+	if(opt->merge && do_clear > 2 && merge_done){
 		clear_output(&opt->d_outpath[0], opt->nr_merge_th);
 	}
 
-	if(opt->merge)
+	if(opt->merge && merge_done)
 		ShowStats(opt);
 	free(opt);
 

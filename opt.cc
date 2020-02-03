@@ -41,19 +41,13 @@ opt_init(struct opt_t *odb)						/* option database */
 	odb->nr_run =								/* number of run files */
 		(odb->total_size/odb->mem_size)*odb->nr_runform_th;
 
-	assert(odb->nr_run > 0);
-
 	odb->kv_size = KV_SIZE;						/* key+value size */
 	odb->key_size = /*8B*/ 8;					/* key size */
 	odb->rf_blksize =				/* available blkbuf per runformation thread */
 		(odb->mem_size/odb->nr_runform_th);
 
-	assert(odb->rf_blksize >= 4096);
-
 	odb->mrg_blksize =							/* available blkbuf per run file */
 		(odb->mem_size/odb->nr_merge_th/odb->nr_run);
-
-	assert(odb->mrg_blksize >= 4096);
 
 	odb->mrg_wrbuf = /*1MB*/ 1*1024*1024;		/* available write buffer per merge thread */
 }
@@ -175,18 +169,22 @@ opt_parse(int argc, char *argv[], struct opt_t *odb){
 		odb->d_runpath.clear();
 		odb->d_outpath.clear();
 
-		int c = 1;
+		int a = 1;
+		int b = 1;
 		for(int i = 0; i < odb->nr_merge_th; i++){
 			odb->d_inpath.push_back(odb->basepath);
 			odb->d_runpath.push_back(odb->basepath);	/* path to temporary run files */
 			odb->d_outpath.push_back(odb->basepath);	/* path to output files */
-			odb->d_inpath[i] += std::to_string(c);
-			odb->d_runpath[i] += std::to_string(c);
-			odb->d_outpath[i] += std::to_string(c);
+			odb->d_inpath[i] += std::to_string(b) + "/";
+			odb->d_runpath[i] += std::to_string(b) + "/";
+			odb->d_outpath[i] += std::to_string(b) + "/";
+			odb->d_inpath[i] += std::to_string(a);
+			odb->d_runpath[i] += std::to_string(a);
+			odb->d_outpath[i] += std::to_string(a);
 			odb->d_inpath[i] += "/input/in";
 			odb->d_runpath[i] += "/runs/run_";
 			odb->d_outpath[i] += "/output/range_";
-			c++;
+			a++;
 		}
 	}
 	else{
@@ -194,12 +192,16 @@ opt_parse(int argc, char *argv[], struct opt_t *odb){
 		exit(1);
 	}
 	if(datasize || memsize || th){
-		odb->nr_run = (odb->total_size/odb->mem_size) * odb->nr_runform_th;
-		assert(odb->nr_run > 0);
+
 		odb->rf_blksize = (odb->mem_size/odb->nr_runform_th);
 		assert(odb->rf_blksize >= 4096);
+
+		odb->nr_run = odb->total_size/odb->rf_blksize;
+		assert(odb->nr_run > 0);
+
 		odb->mrg_blksize = (odb->mem_size/odb->nr_merge_th/odb->nr_run);
 		assert(odb->mrg_blksize >= 4096);
+
 	}
 }
 

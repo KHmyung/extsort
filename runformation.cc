@@ -203,7 +203,7 @@ range_partitioning(struct Data *buf, uint64_t *p, uint64_t size,
 }
 
 static void
-range_calibration(struct RunDesc *rd, uint64_t mrg_blk_size, int nr_range, int id)
+range_calibration(struct RunDesc *rd, int nr_range, int id)
 {
 	uint64_t cum_ofs, start, end;
 
@@ -250,7 +250,6 @@ t_RunFormation(void *data)
 	int th_id = args.th_id;
 	uint64_t data_size = args.data_size;
 	uint64_t blk_size = args.blk_size;
-	uint64_t mrg_blk_size = args.mrg_blk_size;
 	uint64_t offset = 0;
 	std::string *runpath = args.runpath;
 	uint64_t *partition = args.partition;
@@ -281,7 +280,7 @@ t_RunFormation(void *data)
 		range_partitioning(&runbuf[0], &partition[0], blk_size, nr_range,
 						   &run_d[done * nr_range], th_id);
 
-		range_calibration(&run_d[done * nr_range], mrg_blk_size, nr_range, th_id);
+		range_calibration(&run_d[done * nr_range], nr_range, th_id);
 
 		/* Shuffle */
 		for(int range = 0; range < nr_range; range++){
@@ -368,7 +367,6 @@ RunFormation(void* data){
 		runformation_args[th].nr_range = odb.nr_merge_th;
 		runformation_args[th].data_size = data_size;
 		runformation_args[th].blk_size = odb.rf_blksize;
-		runformation_args[th].mrg_blk_size = odb.mrg_blksize;
 		runformation_args[th].runpath = &odb.d_runpath[0];
 		runformation_args[th].partition = &partition[0];
 		runformation_args[th].run_d = &run_d[run_ofs * odb.nr_merge_th];
