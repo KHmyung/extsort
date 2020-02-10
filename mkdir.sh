@@ -2,12 +2,12 @@
 
 ulimit -n 65536
 
-BASEDIR=/mnt/test/a/
+BASEDIR=/mnt/test/
 num=$1
 
 for ((i = 1; i <= ${num}; i++))
 do
-	mkdir -p $BASEDIR$i/input
-	mkdir -p $BASEDIR$i/runs
-	mkdir -p $BASEDIR$i/output
+	mkdir -p $BASEDIR/1/$i/input
+	mkdir -p $BASEDIR/1/$i/runs
+	mkdir -p $BASEDIR/1/$i/output
 done
